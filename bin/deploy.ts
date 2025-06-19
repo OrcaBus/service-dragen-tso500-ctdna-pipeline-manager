@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { StatelessStack } from '../infrastructure/toolchain/stateless-stack';
-import { StatefulStack } from '../infrastructure/toolchain/stateful-stack';
+import { StatelessPipelineStack } from '../infrastructure/toolchain/stateless-pipeline-stack';
+import { StatefulPipelineStack } from '../infrastructure/toolchain/stateful-pipeline-stack';
 import { TOOLCHAIN_ENVIRONMENT } from '@orcabus/platform-cdk-constructs/deployment-stack-pipeline';
 
 const app = new cdk.App();
@@ -13,17 +13,13 @@ if (!deployMode) {
 }
 
 if (deployMode === 'stateless') {
-  new StatelessStack(
-    app,
-    /* TODO: Replace with string. Example: */ 'OrcaBusStateless{ServiceName}Stack',
-    {
-      env: TOOLCHAIN_ENVIRONMENT,
-    }
-  );
+  new StatelessPipelineStack(app, 'StatelessDragenTso500CtdnaPipeline', {
+    env: TOOLCHAIN_ENVIRONMENT,
+  });
 } else if (deployMode === 'stateful') {
-  new StatefulStack(
+  new StatefulPipelineStack(
     app,
-    /* TODO: Replace with string. Example: */ 'OrcaBusStateful{ServiceName}Stack',
+    /* TODO: Replace with string. Example: */ 'StatefulDragenTso500CtdnaPipeline',
     {
       env: TOOLCHAIN_ENVIRONMENT,
     }

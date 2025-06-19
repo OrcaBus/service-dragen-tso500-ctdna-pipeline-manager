@@ -1,0 +1,455 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "Get Engine parameters",
+  "States": {
+    "Get Engine parameters": {
+      "Type": "Parallel",
+      "Next": "Get tags",
+      "Branches": [
+        {
+          "StartAt": "Has Project ID",
+          "States": {
+            "Has Project ID": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Next": "Use provided project id",
+                  "Condition": "{% $draftEngineParameters.projectId ? true : false %}",
+                  "Comment": "Project ID Provided"
+                }
+              ],
+              "Default": "Get Default Project Id"
+            },
+            "Use provided project id": {
+              "Type": "Pass",
+              "End": true,
+              "Output": {
+                "projectId": "{% $draftEngineParameters.projectId %}"
+              }
+            },
+            "Get Default Project Id": {
+              "Type": "Task",
+              "Arguments": {
+                "Name": "/orcabus/workflows/dragen-wgts-dna/icav2-project-id"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
+              "End": true,
+              "Output": {
+                "projectId": "{% $states.result.Parameter.Value %}"
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "Has Pipeline ID",
+          "States": {
+            "Has Pipeline ID": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Next": "Use provided pipeline id",
+                  "Condition": "{% $draftEngineParameters.pipelineId ? true : false %}",
+                  "Comment": "Pipeline ID Provided"
+                }
+              ],
+              "Default": "Get default pipeline id"
+            },
+            "Use provided pipeline id": {
+              "Type": "Pass",
+              "End": true,
+              "Output": {
+                "pipelineId": "{% $draftEngineParameters.pipelineId %}"
+              }
+            },
+            "Get default pipeline id": {
+              "Type": "Task",
+              "Arguments": {
+                "Name": "{% '/orcabus/workflows/dragen-wgts-dna/pipeline-ids-by-workflow-version/' & $draftDetail.workflowVersion %}"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
+              "End": true,
+              "Output": {
+                "pipelineId": "{% $states.result.Parameter.Value %}"
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "Has Output URI",
+          "States": {
+            "Has Output URI": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Next": "Use provided output uri",
+                  "Condition": "{% $draftEngineParameters.outputUri ? true : false %}",
+                  "Comment": "Output URI Provided"
+                }
+              ],
+              "Default": "Get default output uri prefix"
+            },
+            "Use provided output uri": {
+              "Type": "Pass",
+              "End": true,
+              "Output": {
+                "outputUri": "{% $draftEngineParameters.outputUri %}"
+              }
+            },
+            "Get default output uri prefix": {
+              "Type": "Task",
+              "Arguments": {
+                "Name": "/orcabus/workflows/dragen-wgts-dna/output-prefix"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
+              "End": true,
+              "Output": {
+                "outputUri": "{% $states.result.Parameter.Value & $draftDetail.portalRunId & '/' %}"
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "Has Logs URI",
+          "States": {
+            "Has Logs URI": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Next": "Use provided logs uri",
+                  "Condition": "{% $draftEngineParameters.logsUri ? true : false %}",
+                  "Comment": "Logs URI Provided"
+                }
+              ],
+              "Default": "Get default logs uri prefix"
+            },
+            "Use provided logs uri": {
+              "Type": "Pass",
+              "End": true,
+              "Output": {
+                "logsUri": "{% $draftEngineParameters.logsUri %}"
+              }
+            },
+            "Get default logs uri prefix": {
+              "Type": "Task",
+              "Arguments": {
+                "Name": "/orcabus/workflows/dragen-wgts-dna/logs-prefix"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
+              "End": true,
+              "Output": {
+                "logsUri": "{% $states.result.Parameter.Value & $draftDetail.portalRunId & '/' %}"
+              }
+            }
+          }
+        }
+      ],
+      "Assign": {
+        "engineParameters": "{% /* https://try.jsonata.org/6nUH8BUBr */\n$merge($states.result) %}"
+      }
+    },
+    "Get tags": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Has fastqRgidList",
+          "States": {
+            "Has fastqRgidList": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Next": "Set fastq rgid list",
+                  "Condition": "{% $draftTags.fastqRgidList ? true : false %}"
+                }
+              ],
+              "Default": "Get fastq list rgids from normal libraries"
+            },
+            "Set fastq rgid list": {
+              "Type": "Pass",
+              "End": true,
+              "Output": {
+                "fastqRgidList": "{% $draftTags.fastqRgidList %}"
+              }
+            },
+            "Get fastq list rgids from normal libraries": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Arguments": {
+                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrag-getFastqRgidsFromLibrary-UdJbbUQ9a2We:1",
+                "Payload": {
+                  "libraryId": "{% $draftTags.libraryId %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "End": true,
+              "Output": {
+                "fastqRgidList": "{% $states.result.Payload.fastqRgidList %}"
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "Get subject and individual id tags",
+          "States": {
+            "Get subject and individual id tags": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Arguments": {
+                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrage-getMetadataTagsDDC2244F-woHY3eEHTCNg:1",
+                "Payload": {
+                  "libraryId": "{% $draftTags.libraryId %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "End": true,
+              "Output": {
+                "subjectId": "{% $states.result.Payload.libraryObj.subject.subjectId %}",
+                "individualId": "{% $states.result.Payload.libraryObj.subject.individualSet[0].individualId %}"
+              }
+            }
+          }
+        }
+      ],
+      "Next": "Get Inputs",
+      "Assign": {
+        "tags": "{% /* https://try.jsonata.org/05K2l3beH */\n/* List to merge together */\n[\n    /* Start with the draft tags */\n    $draftTags,\n    /* Merge the results list together */\n    $merge($states.result)\n] \n/* Then merge these initial tags with states.result  */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
+      }
+    },
+    "Get Inputs": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Get fastq set ids from rgid list",
+          "States": {
+            "Get fastq set ids from rgid list": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Output": {
+                "fastqSetIdList": "{% $states.result.Payload.fastqSetIdList %}"
+              },
+              "Arguments": {
+                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrag-getFastqSetIdsFromRgidLi-6c4XvaYJ1geY:1",
+                "Payload": {
+                  "fastqRgidList": "{% $tags.fastqRgidList %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "Next": "Wait for fastqs"
+            },
+            "Wait for fastqs": {
+              "Type": "Map",
+              "ItemProcessor": {
+                "ProcessorConfig": {
+                  "Mode": "INLINE"
+                },
+                "StartAt": "Wait for fastq",
+                "States": {
+                  "Wait for fastq": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::events:putEvents.waitForTaskToken",
+                    "Arguments": {
+                      "Entries": [
+                        {
+                          "Detail": {
+                            "taskToken": "{% $states.context.Task.Token %}",
+                            "fastqSetId": "{% $states.input.fastqSetIdMapIter %}",
+                            "requirements": {
+                              "hasQc": true,
+                              "hasFingerprint": true,
+                              "hasActiveReadSet": true
+                            }
+                          },
+                          "DetailType": "fastqSync",
+                          "EventBusName": "OrcaBusMain",
+                          "Source": "orcabus.dragenwgtsdna"
+                        }
+                      ]
+                    },
+                    "End": true
+                  }
+                }
+              },
+              "Next": "Get fastq list rows from rgid list",
+              "Items": "{% $states.input.fastqSetIdList %}",
+              "ItemSelector": {
+                "fastqSetIdMapIter": "{% $states.context.Map.Item.Value %}"
+              }
+            },
+            "Get fastq list rows from rgid list": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Arguments": {
+                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrag-getFastqListRowsFromRgid-cIyvJx4JcRM1:1",
+                "Payload": {
+                  "fastqRgidList": "{% $tags.fastqRgidList %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "End": true,
+              "Output": {
+                "fastqListRows": "{% $states.result.Payload.fastqListRows %}"
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "Pass",
+          "States": {
+            "Pass": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "Add qc tags",
+      "Assign": {
+        "inputs": "{% [\n  /* Start with the draft inputs */\n  $draftInputs,\n  /* Combine the states results */\n  {\n      \"sequenceData\": $states.result[0],\n      \"tumorSequenceData\": $states.result[1]\n  },\n  /* Add in the required sampleName and tumorSampleName */\n  /* These must match the value of the library id */\n  {\n    \"sampleName\": $draftTags.libraryId,\n    \"tumorSampleName\": $draftTags.tumorLibraryId ? $draftTags.tumorLibraryId : null\n  }\n]\n/* Combine old and new */\n~> $merge\n/* Sift out inputs with null values */\n~> $sift(function($v, $k){ $v != null }) %}"
+      }
+    },
+    "Add qc tags": {
+      "Type": "Parallel",
+      "Next": "Push READY Event",
+      "Branches": [
+        {
+          "StartAt": "Get coverage and dup-frac estimates",
+          "States": {
+            "Get coverage and dup-frac estimates": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Arguments": {
+                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrag-getQcSummaryStatsFromRgi-NJsckeQcK2cR:1",
+                "Payload": {
+                  "fastqRgidList": "{% $tags.fastqRgidList %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "End": true,
+              "Output": {
+                "preLaunchCoverageEst": "{% $states.result.Payload.coverageSum %}",
+                "preLaunchDupFracEst": "{% $states.result.Payload.dupFracAvg %}",
+                "preLaunchInsertSizeEst": "{% $states.result.Payload.insertSizeAvg %}"
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "check ntsm passing",
+          "States": {
+            "check ntsm passing": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Arguments": {
+                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrag-checkNtsmInternalCBE1AB4-ay0Piim0yvmA:1",
+                "Payload": {
+                  "fastqRgidList": "{% $tags.fastqRgidList %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "End": true,
+              "Output": {
+                "ntsmInternalPassing": "{% $states.result.Payload.related %}"
+              }
+            }
+          }
+        }
+      ],
+      "Assign": {
+        "tags": "{% /* https://try.jsonata.org/05K2l3beH */\n/* List to merge together */\n[\n    /* Start with the tags */\n    $tags,\n    /* Merge the results list together */\n    $merge($states.result)\n] \n/* Then merge these initial tags with states.result  */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
+      }
+    },
+    "Push READY Event": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Arguments": {
+        "Entries": [
+          {
+            "Detail": "{% $merge([\n  $draftDetail,\n  {\n    \"status\": \"READY\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $draftPayload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n])\n %}",
+            "DetailType": "WorkflowRunStateChange",
+            "EventBusName": "OrcaBusMain",
+            "Source": "orcabus.dragenwgtsdna"
+          }
+        ]
+      },
+      "End": true
+    }
+  },
+  "QueryLanguage": "JSONata"
+}
