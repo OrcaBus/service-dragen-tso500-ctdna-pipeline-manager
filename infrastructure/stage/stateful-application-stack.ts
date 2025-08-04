@@ -1,14 +1,26 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
+import { buildSsmParameters } from './ssm';
+import { buildSchemasAndRegistry } from './event-schemas';
+import { StatefulApplicationStackConfig } from './interfaces';
+
+export type StatefulApplicationStackProps = cdk.StackProps & StatefulApplicationStackConfig;
 
 export class StatefulApplicationStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: StatefulApplicationStackProps) {
     super(scope, id, props);
 
     /**
-     * Define your stack to be deployed in stages here
-     *
-     * TODO: Rename the class to match the service name and stateless/stateful stack
+     * Dragen TSO500 ctDNA Stateful application stack
      */
+
+    // Build SSM Parameters
+    buildSsmParameters(this, {
+      ssmParameterPaths: props.ssmParameterPaths,
+      ssmParameterValues: props.ssmParameterValues,
+    });
+
+    // Build Schema stack
+    buildSchemasAndRegistry(this);
   }
 }

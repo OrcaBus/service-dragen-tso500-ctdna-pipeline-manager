@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { DeploymentStackPipeline } from '@orcabus/platform-cdk-constructs/deployment-stack-pipeline';
-import { getStackProps } from '../stage/config';
+import { getStatefulApplicationStackProps } from '../stage/config';
 import { StatefulApplicationStack } from '../stage/stateful-application-stack';
 import { REPO_NAME } from './constants';
 
@@ -15,9 +15,9 @@ export class StatefulPipelineStack extends cdk.Stack {
       stack: StatefulApplicationStack,
       stackName: 'StatefulDragenTso500Ctdna',
       stackConfig: {
-        beta: getStackProps('BETA'),
-        gamma: getStackProps('GAMMA'),
-        prod: getStackProps('PROD'),
+        beta: getStatefulApplicationStackProps('BETA'),
+        gamma: getStatefulApplicationStackProps('GAMMA'),
+        prod: getStatefulApplicationStackProps('PROD'),
       },
       pipelineName: 'StatefulDragenTso500CtdnaPipeline',
       cdkSynthCmd: ['pnpm install --frozen-lockfile --ignore-scripts', 'pnpm cdk-stateful synth'],

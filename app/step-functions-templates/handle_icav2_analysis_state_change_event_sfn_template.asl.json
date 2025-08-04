@@ -1,0 +1,251 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "Save Inputs",
+  "States": {
+    "Save Inputs": {
+      "Type": "Pass",
+      "Next": "Convert ICAv2 WES event to WRSC Event",
+      "Assign": {
+        "icav2WesStateChangeEvent": "{% $states.input %}",
+        "name": "{% $states.input.name %}",
+        "inputs": "{% $states.input.inputs %}",
+        "tags": "{% $states.input.tags %}",
+        "engineParameters": "{% $states.input.engineParameters %}",
+        "status": "{% $states.input.status %}"
+      }
+    },
+    "Convert ICAv2 WES event to WRSC Event": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${__convert_icav2_wes_to_wrsc_event_lambda_function_arn__}",
+        "Payload": {
+          "icav2WesStateChangeEvent": "{% $icav2WesStateChangeEvent %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "If Succeeded Status",
+      "Assign": {
+        "workflowRunStateChangeEvent": "{% $states.result.Payload.workflowRunStateChangeEvent %}",
+        "engineParameters": "{% /* Includes the cache uri */ $states.result.Payload.workflowRunStateChangeEvent.payload.data.engineParameters %}"
+      }
+    },
+    "If Succeeded Status": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Next": "Check sample has succeeded",
+          "Condition": "{% $status = 'SUCCEEDED' %}",
+          "Comment": "Is Succeeded status"
+        }
+      ],
+      "Default": "Is new workflow manager deployed"
+    },
+    "Check sample has succeeded": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": {},
+      "Assign": {
+        "status": "{% $states.result.Payload.success ? 'SUCCEEDED' : 'FAILED'  %}"
+      },
+      "Arguments": {
+        "FunctionName": "${__check_sample_has_succeeded_lambda_function_arn__}",
+        "Payload": {
+          "outputUri": "{% $engineParameters.outputUri %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "If new status is succeeded"
+    },
+    "If new status is succeeded": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Next": "Compress and clean up",
+          "Condition": "{% $status = 'SUCCEEDED' %}"
+        }
+      ],
+      "Default": "Is new workflow manager deployed"
+    },
+    "Compress and clean up": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "Delete Cache URI",
+          "States": {
+            "Delete Cache URI": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Output": "{% $states.result.Payload %}",
+              "Arguments": {
+                "FunctionName": "${__delete_cache_uri_lambda_function_arn__}",
+                "Payload": {
+                  "sampleId": "{% $tags.libraryId %}",
+                  "cacheUri": "{% $engineParameters.cacheUri %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "Find vcf files",
+          "States": {
+            "Find vcf files": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Arguments": {
+                "FunctionName": "${__find_vcf_files_lambda_function_arn__}",
+                "Payload": {
+                  "icav2Uri": "{% $engineParameters.outputUri %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "Next": "Compress vcfs",
+              "Output": {
+                "vcfIcav2UriList": "{% $states.result.Payload.vcfIcav2UriList %}"
+              }
+            },
+            "Compress vcfs": {
+              "Type": "Map",
+              "ItemProcessor": {
+                "ProcessorConfig": {
+                  "Mode": "INLINE"
+                },
+                "StartAt": "Tabix compress VCFs",
+                "States": {
+                  "Tabix compress VCFs": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::lambda:invoke",
+                    "Output": {},
+                    "Arguments": {
+                      "FunctionName": "${__tabix_compress_vcf_lambda_function_arn__}",
+                      "Payload": {
+                        "vcfFileUri": "{% $states.input.vcfFileUri %}"
+                      }
+                    },
+                    "Retry": [
+                      {
+                        "ErrorEquals": [
+                          "Lambda.ServiceException",
+                          "Lambda.AWSLambdaException",
+                          "Lambda.SdkClientException",
+                          "Lambda.TooManyRequestsException"
+                        ],
+                        "IntervalSeconds": 1,
+                        "MaxAttempts": 3,
+                        "BackoffRate": 2,
+                        "JitterStrategy": "FULL"
+                      }
+                    ],
+                    "End": true
+                  }
+                }
+              },
+              "End": true,
+              "Items": "{% $states.input.vcfIcav2UriList %}",
+              "ItemSelector": {
+                "vcfFileUri": "{% $states.context.Map.Item.Value %}"
+              }
+            }
+          }
+        }
+      ],
+      "Next": "Is new workflow manager deployed"
+    },
+    "Is new workflow manager deployed": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Next": "Put WRSC Event",
+          "Condition": "{% /* ${__new_workflow_manager_is_deployed__} */ false %}"
+        }
+      ],
+      "Default": "Put WRSC Event Legacy"
+    },
+    "Put WRSC Event": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Arguments": {
+        "Entries": [
+          {
+            "Detail": "{% /* Merge workflowRunStateChangeEvent with the status object */\n$merge(\n  $workflowRunStateChangeEvent,\n  {\n    \"status\": $status\n  }\n) %}",
+            "DetailType": "${__workflow_run_state_change_event_detail_type__}",
+            "EventBusName": "${__event_bus_name__}",
+            "Source": "${__stack_source__}"
+          }
+        ]
+      },
+      "End": true
+    },
+    "Put WRSC Event Legacy": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Arguments": {
+        "Entries": [
+          {
+            "Detail": "{% /* Merge workflowRunStateChangeEvent with the status object */\n$merge([\n  $workflowRunStateChangeEvent,\n  {\n    \"status\": $status\n  }\n]) ~>\n/* Renamed libraries to linkedLibraries using the transform method */\n| $ | {\"linkedLibraries\": libraries}, [\"libraries\"] | ~>\n/* Renamed workflowName and workflowVersion using the transform method */\n| $ | {\"workflowName\": workflow.name, \"workflowVersion\": workflow.version}, [\"workflow\"] |\n %}",
+            "DetailType": "${__workflow_run_state_change_event_detail_type__}",
+            "EventBusName": "${__event_bus_name__}",
+            "Source": "${__stack_source__}"
+          }
+        ]
+      },
+      "End": true
+    }
+  },
+  "QueryLanguage": "JSONata"
+}

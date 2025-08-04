@@ -126,7 +126,9 @@ The pipeline does not support ORA compressed fastqs, so we also need to decompre
               "read1FileUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/test_data/ora-testing/input_data/MDX230428_L2301197_S7_L004_R1_001.fastq.ora",
               "read2FileUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/test_data/ora-testing/input_data/MDX230428_L2301197_S7_L004_R2_001.fastq.ora"
             }
-          ]
+          ],
+          // The library id
+          "sampleName": "L2301197"
         },
         // engineParameters - Parameters for the pipeline engine
         "engineParameters": {
@@ -190,26 +192,121 @@ The pipeline does not support ORA compressed fastqs, so we also need to decompre
         "libraryId": "L2301197",
         "orcabusId": "lib.01JBMVHM2D5GCC7FTC20K4FDFK"
       }
-    ],
-    // payload - The payload for the workflow run, containing all the necessary data
-    "payload": {
-      // version - The version of the payload schema used by this service
-      // Not currently used by the service, but may be used in future
-      "version": "2025.06.20",
-      // data - The data for the workflow run, containing inputs, engine parameters, and tags
-      "data": {
-        // all inputs for the dragen-tso-ctdna pipeline
-        "inputs": {},
-        // engineParameters - Parameters for the pipeline engine
-        "engineParameters": {},
-        "tags": {
-          // libraryId, required, the germline library ID for the workflow run
-          "libraryId": "L2301197",
-        }
-      }
-    }
+    ]
   }
 }
+```
+
+### Make your own minimal draft event with bash + Jq
+
+```bash
+# Globals
+EVENT_BUS_NAME="OrcaBusMain"
+DETAIL_TYPE="WorkflowRunStateChange"
+SOURCE="orcabus.manual"
+
+WORKFLOW_NAME="dragen-tso500-ctdna"
+WORKFLOW_VERSION="2.6.0"
+
+PAYLOAD_VERSION="2025.07.29"
+
+# Glocals
+LIBRARY_ID="L2401531"
+
+# Functions
+get_hostname_from_ssm(){
+  aws ssm get-parameter \
+    --name "/hosted_zone/umccr/name" \
+    --output json | \
+  jq --raw-output \
+    '.Parameter.Value'
+}
+
+get_orcabus_token(){
+  aws secretsmanager get-secret-value \
+    --secret-id orcabus/token-service-jwt \
+    --output json \
+    --query SecretString | \
+  jq --raw-output \
+    'fromjson | .id_token'
+}
+
+get_library_obj_from_library_id(){
+  local library_id="$1"
+  curl --silent --fail --show-error --location \
+    --header "Authorization: Bearer $(get_orcabus_token)" \
+    --url "https://metadata.$(get_hostname_from_ssm)/api/v1/library?libraryId=${library_id}" | \
+  jq --raw-output \
+    '
+      .results[0] |
+      {
+        "libraryId": .libraryId,
+        "orcabusId": .orcabusId
+      }
+    '
+}
+
+generate_portal_run_id(){
+  echo "$(date -u +'%Y%m%d')$(openssl rand -hex 4)"
+}
+
+get_libraries(){
+  local library_id="$1"
+
+  library_obj=$(get_library_obj_from_library_id "$library_id")
+
+  jq --null-input --raw-output \
+    --argjson libraryObj "$library_obj" \
+    '
+      [
+          $libraryObj
+      ]
+    '
+}
+
+# Generate the event
+event_cli_json="$( \
+  jq --null-input --raw-output \
+    --arg eventBusName "$EVENT_BUS_NAME" \
+    --arg detailType "$DETAIL_TYPE" \
+    --arg source "$SOURCE" \
+    --arg workflowName "$WORKFLOW_NAME" \
+    --arg workflowVersion "${WORKFLOW_VERSION}" \
+    --arg payloadVersion "$PAYLOAD_VERSION" \
+    --arg portalRunId "$(generate_portal_run_id)" \
+    --argjson libraries "$(get_libraries "$LIBRARY_ID")" \
+    '
+      {
+        # Standard fields for the event
+        "EventBusName": $eventBusName,
+        "DetailType": $detailType,
+        "Source": $source,
+        # Detail must be a JSON object in string format
+        "Detail": (
+          {
+            "status": "DRAFT",
+            "timestamp": (now | todateiso8601),
+            "workflow": {
+                "name": $workflowName,
+                "version": $workflowVersion,
+            },
+            "workflowRunName": ("umccr--automated--" + $workflowName + "--" + ($workflowVersion | gsub("\\."; "-")) + "--" + $portalRunId),
+            "portalRunId": $portalRunId,
+            "libraries": $libraries
+          } |
+          tojson
+        )
+      } |
+      # Now wrap into an "entry" for the CLI
+      {
+        "Entries": [
+          .
+        ]
+      }
+    ' \
+)"
+
+echo aws events put-events --no-cli-pager --cli-input-json "${event_cli_json}"
 ```
 
 Infrastructure & Deployment
