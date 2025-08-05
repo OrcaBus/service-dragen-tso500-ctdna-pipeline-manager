@@ -3,7 +3,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { EVENT_SCHEMAS_DIR, SCHEMA_REGISTRY_NAME, SSM_SCHEMA_ROOT } from '../constants';
 import * as path from 'path';
 import * as fs from 'fs';
-import { schemaNames, SchemaNamesList } from './interfaces';
+import { schemaNamesList, buildSchemaProps } from './interfaces';
 import { Construct } from 'constructs';
 import { camelCaseToKebabCase } from '../utils';
 
@@ -13,24 +13,24 @@ export function buildRegistry(scope: Construct, registryName: string): schemas.C
   });
 }
 
-export function buildSchema(scope: Construct, schemaName: SchemaNamesList): schemas.CfnSchema {
+export function buildSchema(scope: Construct, props: buildSchemaProps): schemas.CfnSchema {
   // Import the schema file from the schemas directory
   const schemaPath = path.join(
     EVENT_SCHEMAS_DIR,
-    camelCaseToKebabCase(schemaName) + '-schema.json'
+    camelCaseToKebabCase(props.schemaName) + '-schema.json'
   );
 
   // Create a new schema in the Event Schemas service
-  return new schemas.CfnSchema(scope, schemaName, {
+  return new schemas.CfnSchema(scope, props.schemaName, {
     type: 'JSONSchemaDraft4',
     content: fs.readFileSync(schemaPath, 'utf-8'),
-    registryName: SCHEMA_REGISTRY_NAME,
+    registryName: <string>props.registry.registryName,
   });
 }
 
 export function buildSchemasAndRegistry(scope: Construct) {
   // Build the registry
-  buildRegistry(scope, SCHEMA_REGISTRY_NAME);
+  const registryObj = buildRegistry(scope, SCHEMA_REGISTRY_NAME);
 
   // Add an ssm entry for the registry name
   new ssm.StringParameter(scope, `${SCHEMA_REGISTRY_NAME}-ssm`, {
@@ -39,8 +39,11 @@ export function buildSchemasAndRegistry(scope: Construct) {
   });
 
   // Iterate over the schemas directory and create a schema for each file
-  for (const schemaName of schemaNames) {
-    const schemaObj = buildSchema(scope, schemaName);
+  for (const schemaName of schemaNamesList) {
+    const schemaObj = buildSchema(scope, {
+      registry: registryObj,
+      schemaName: schemaName,
+    });
     // And also a latest ssm parameter for the schema
     // Likely the one most commonly used
     new ssm.StringParameter(scope, `${schemaName}-ssm-latest`, {
