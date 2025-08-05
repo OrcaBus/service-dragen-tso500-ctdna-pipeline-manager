@@ -1,7 +1,100 @@
 {
   "Comment": "A description of my state machine",
-  "StartAt": "Get Engine parameters",
+  "StartAt": "Save Vars",
   "States": {
+    "Save Vars": {
+      "Type": "Pass",
+      "Next": "Validate Draft Data",
+      "Assign": {
+        "draftDetail": "{% $states.input %}",
+        "draftLibrariesList": "{% $states.input.libraries %}",
+        "draftPayload": "{% (\n  $states.input.payload ? \n  $states.input.payload : {\n    \"version\": \"${__default_payload_version__}\"\n  }\n) %}",
+        "draftData": "{% $states.input.payload.data ? $states.input.payload.data : {} %}",
+        "draftEngineParameters": "{% $states.input.payload.data.engineParameters ? $states.input.payload.data.engineParameters : {} %}",
+        "draftTags": "{% $states.input.payload.data.tags ? $states.input.payload.data.tags : {} %}",
+        "draftInputs": "{% $states.input.payload.data.inputs ? $states.input.payload.data.inputs : {} %}"
+      }
+    },
+    "Validate Draft Data": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${__validate_draft_payload_lambda_function_arn__}",
+        "Payload": "{% $draftData %}"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Is Valid Data",
+      "Output": {
+        "isValid": "{% $states.result.Payload.isValid %}"
+      }
+    },
+    "Is Valid Data": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Next": "No need to rerun",
+          "Condition": "{% $states.input.isValid %}",
+          "Comment": "No need to populate"
+        }
+      ],
+      "Default": "Do we have matching libraries"
+    },
+    "Do we have matching libraries": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Next": "Get Engine parameters",
+          "Condition": "{%\n/* Compare the draft tags to the libraries */\n/* Get the draft tags */\n(\n    [ \n        $draftTags.(libraryId)\n    ]\n)\n=\n/* Get the draft detail libraries */ \n(\n    [\n        $draftLibrariesList.(libraryId)\n    ]\n) %}"
+        }
+      ],
+      "Default": "Get Primitive Tags from libraries"
+    },
+    "Get Primitive Tags from libraries": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "${__get_libraries_lambda_function_arn__}",
+        "Payload": {
+          "libraries": "{% $draftLibrariesList %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Assign": {
+        "draftTags": "{% $merge(\n  [\n    $states.result.Payload,\n    $draftTags\n  ]\n) %}"
+      },
+      "Next": "Get Engine parameters"
+    },
+    "No need to rerun": {
+      "Type": "Pass",
+      "End": true
+    },
     "Get Engine parameters": {
       "Type": "Parallel",
       "Next": "Get tags",
@@ -30,7 +123,7 @@
             "Get Default Project Id": {
               "Type": "Task",
               "Arguments": {
-                "Name": "/orcabus/workflows/dragen-wgts-dna/icav2-project-id"
+                "Name": "${__default_project_id_ssm_parameter_name__}"
               },
               "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
               "End": true,
@@ -64,7 +157,7 @@
             "Get default pipeline id": {
               "Type": "Task",
               "Arguments": {
-                "Name": "{% '/orcabus/workflows/dragen-wgts-dna/pipeline-ids-by-workflow-version/' & $draftDetail.workflowVersion %}"
+                "Name": "{% '${__workflow_id_to_pipeline_id_ssm_parameter_path_prefix__}/' & $draftDetail.workflow.version %}"
               },
               "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
               "End": true,
@@ -98,7 +191,7 @@
             "Get default output uri prefix": {
               "Type": "Task",
               "Arguments": {
-                "Name": "/orcabus/workflows/dragen-wgts-dna/output-prefix"
+                "Name": "${__default_output_uri_prefix_ssm_parameter_name__}"
               },
               "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
               "End": true,
@@ -132,12 +225,46 @@
             "Get default logs uri prefix": {
               "Type": "Task",
               "Arguments": {
-                "Name": "/orcabus/workflows/dragen-wgts-dna/logs-prefix"
+                "Name": "${__default_logs_uri_prefix_ssm_parameter_name__}"
               },
               "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
               "End": true,
               "Output": {
                 "logsUri": "{% $states.result.Parameter.Value & $draftDetail.portalRunId & '/' %}"
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "Has Cache URI",
+          "States": {
+            "Has Cache URI": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Next": "Use provided cache uri",
+                  "Condition": "{% $draftEngineParameters.cacheUri ? true : false %}",
+                  "Comment": "Cache URI Provided"
+                }
+              ],
+              "Default": "Get default cache uri prefix"
+            },
+            "Use provided cache uri": {
+              "Type": "Pass",
+              "End": true,
+              "Output": {
+                "cacheUri": "{% $draftEngineParameters.cacheUri %}"
+              }
+            },
+            "Get default cache uri prefix": {
+              "Type": "Task",
+              "Arguments": {
+                "Name": "${__default_cache_uri_prefix_ssm_parameter_name__}"
+              },
+              "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
+              "End": true,
+              "Output": {
+                "cacheUri": "{% $states.result.Parameter.Value & $draftDetail.portalRunId & '/' %}"
               }
             }
           }
@@ -174,7 +301,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Arguments": {
-                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrag-getFastqRgidsFromLibrary-UdJbbUQ9a2We:1",
+                "FunctionName": "${__get_fastq_list_rgids_from_library_lambda_function_arn__}",
                 "Payload": {
                   "libraryId": "{% $draftTags.libraryId %}"
                 }
@@ -207,7 +334,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Arguments": {
-                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrage-getMetadataTagsDDC2244F-woHY3eEHTCNg:1",
+                "FunctionName": "${__get_metadata_tags_lambda_function_arn__}",
                 "Payload": {
                   "libraryId": "{% $draftTags.libraryId %}"
                 }
@@ -237,23 +364,23 @@
       ],
       "Next": "Get Inputs",
       "Assign": {
-        "tags": "{% /* https://try.jsonata.org/05K2l3beH */\n/* List to merge together */\n[\n    /* Start with the draft tags */\n    $draftTags,\n    /* Merge the results list together */\n    $merge($states.result)\n] \n/* Then merge these initial tags with states.result  */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
+        "tags": "{% /* List to merge together */\n[\n    /* Start with the draft tags */\n    $draftTags,\n    /* Merge the results list together */\n    $merge($states.result)\n] \n/* Then merge these initial tags with states.result  */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
       }
     },
     "Get Inputs": {
       "Type": "Parallel",
       "Branches": [
         {
-          "StartAt": "Get fastq set ids from rgid list",
+          "StartAt": "Get fastq ids from rgid list",
           "States": {
-            "Get fastq set ids from rgid list": {
+            "Get fastq ids from rgid list": {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Output": {
-                "fastqSetIdList": "{% $states.result.Payload.fastqSetIdList %}"
+                "fastqIdList": "{% $states.result.Payload.fastqIdList %}"
               },
               "Arguments": {
-                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrag-getFastqSetIdsFromRgidLi-6c4XvaYJ1geY:1",
+                "FunctionName": "${__get_fastq_id_list_from_fastq_rgid_list_lambda_function_arn__}",
                 "Payload": {
                   "fastqRgidList": "{% $tags.fastqRgidList %}"
                 }
@@ -275,51 +402,41 @@
               "Next": "Wait for fastqs"
             },
             "Wait for fastqs": {
-              "Type": "Map",
-              "ItemProcessor": {
-                "ProcessorConfig": {
-                  "Mode": "INLINE"
-                },
-                "StartAt": "Wait for fastq",
-                "States": {
-                  "Wait for fastq": {
-                    "Type": "Task",
-                    "Resource": "arn:aws:states:::events:putEvents.waitForTaskToken",
-                    "Arguments": {
-                      "Entries": [
-                        {
-                          "Detail": {
-                            "taskToken": "{% $states.context.Task.Token %}",
-                            "fastqSetId": "{% $states.input.fastqSetIdMapIter %}",
-                            "requirements": {
-                              "hasQc": true,
-                              "hasFingerprint": true,
-                              "hasActiveReadSet": true
-                            }
-                          },
-                          "DetailType": "fastqSync",
-                          "EventBusName": "OrcaBusMain",
-                          "Source": "orcabus.dragenwgtsdna"
-                        }
-                      ]
+              "Type": "Task",
+              "Resource": "arn:aws:states:::events:putEvents.waitForTaskToken",
+              "Arguments": {
+                "Entries": [
+                  {
+                    "Detail": {
+                      "taskToken": "{% $states.context.Task.Token %}",
+                      "payload": {
+                        "fastqIdList": "{% $states.input.fastqIdList %}",
+                        "requirements": {
+                          "hasQc": true,
+                          "hasFingerprint": true,
+                          "hasActiveReadSet": true
+                        },
+                        "forceUnarchiving": true
+                      }
                     },
-                    "End": true
+                    "DetailType": "${__fastq_sync_detail_type__}",
+                    "EventBusName": "OrcaBusMain",
+                    "Source": "orcabus.dragenwgtsdna"
                   }
-                }
+                ]
               },
-              "Next": "Get fastq list rows from rgid list",
-              "Items": "{% $states.input.fastqSetIdList %}",
-              "ItemSelector": {
-                "fastqSetIdMapIter": "{% $states.context.Map.Item.Value %}"
-              }
+              "Output": {
+                "fastqIdList": "{% $states.input.fastqIdList %}"
+              },
+              "Next": "Get fastq list rows from fastq list"
             },
-            "Get fastq list rows from rgid list": {
+            "Get fastq list rows from fastq list": {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Arguments": {
-                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrag-getFastqListRowsFromRgid-cIyvJx4JcRM1:1",
+                "FunctionName": "${__get_fastq_list_rows_from_fastq_id_list_lambda_function_arn__}",
                 "Payload": {
-                  "fastqRgidList": "{% $tags.fastqRgidList %}"
+                  "fastqIdList": "{% $states.input.fastqIdList %}"
                 }
               },
               "Retry": [
@@ -348,6 +465,7 @@
           "States": {
             "Pass": {
               "Type": "Pass",
+              "Output": {},
               "End": true
             }
           }
@@ -355,12 +473,12 @@
       ],
       "Next": "Add qc tags",
       "Assign": {
-        "inputs": "{% [\n  /* Start with the draft inputs */\n  $draftInputs,\n  /* Combine the states results */\n  {\n      \"sequenceData\": $states.result[0],\n      \"tumorSequenceData\": $states.result[1]\n  },\n  /* Add in the required sampleName and tumorSampleName */\n  /* These must match the value of the library id */\n  {\n    \"sampleName\": $draftTags.libraryId,\n    \"tumorSampleName\": $draftTags.tumorLibraryId ? $draftTags.tumorLibraryId : null\n  }\n]\n/* Combine old and new */\n~> $merge\n/* Sift out inputs with null values */\n~> $sift(function($v, $k){ $v != null }) %}"
+        "inputs": "{% /* https://try.jsonata.org/-D6C7WZKF */\n/* List to merge together */\n[\n    /* Start with the draft inputs */\n    $draftInputs,\n    /* Merge the results list together */\n    $merge($states.result),\n    /* Add in the sampleName from the library id variable */\n    {\n        \"sampleName\": $draftTags.libraryId\n    }\n]\n/* Then merge these initial inputs with states.result */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
       }
     },
     "Add qc tags": {
       "Type": "Parallel",
-      "Next": "Push READY Event",
+      "Next": "Is new workflow manager deployed",
       "Branches": [
         {
           "StartAt": "Get coverage and dup-frac estimates",
@@ -369,7 +487,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Arguments": {
-                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrag-getQcSummaryStatsFromRgi-NJsckeQcK2cR:1",
+                "FunctionName": "${__get_qc_summary_stats_from_rgid_list_lambda_function_arn__}",
                 "Payload": {
                   "fastqRgidList": "{% $tags.fastqRgidList %}"
                 }
@@ -404,7 +522,7 @@
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Arguments": {
-                "FunctionName": "arn:aws:lambda:ap-southeast-2:472057503814:function:OrcaBusProd-StatelessDrag-checkNtsmInternalCBE1AB4-ay0Piim0yvmA:1",
+                "FunctionName": "${__check_ntsm_internal_passing_lambda_function_arn__}",
                 "Payload": {
                   "fastqRgidList": "{% $tags.fastqRgidList %}"
                 }
@@ -435,16 +553,42 @@
         "tags": "{% /* https://try.jsonata.org/05K2l3beH */\n/* List to merge together */\n[\n    /* Start with the tags */\n    $tags,\n    /* Merge the results list together */\n    $merge($states.result)\n] \n/* Then merge these initial tags with states.result  */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
       }
     },
-    "Push READY Event": {
+    "Is new workflow manager deployed": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Next": "Push DRAFT Event",
+          "Condition": "{% /* ${__new_workflow_manager_is_deployed__} */ false %}",
+          "Comment": "New workflow manager is deployed"
+        }
+      ],
+      "Default": "Push DRAFT Event (legacy)"
+    },
+    "Push DRAFT Event": {
       "Type": "Task",
       "Resource": "arn:aws:states:::events:putEvents",
       "Arguments": {
         "Entries": [
           {
-            "Detail": "{% $merge([\n  $draftDetail,\n  {\n    \"status\": \"READY\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $draftPayload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n])\n %}",
-            "DetailType": "WorkflowRunStateChange",
-            "EventBusName": "OrcaBusMain",
-            "Source": "orcabus.dragenwgtsdna"
+            "Detail": "{% $merge([\n  $draftDetail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $draftPayload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n])\n %}",
+            "DetailType": "${__workflow_run_state_change_event_detail_type__}",
+            "EventBusName": "${__event_bus_name__}",
+            "Source": "${__stack_source__}"
+          }
+        ]
+      },
+      "End": true
+    },
+    "Push DRAFT Event (legacy)": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Arguments": {
+        "Entries": [
+          {
+            "Detail": "{% $merge([\n  $draftDetail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $draftPayload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n]) ~>\n/* Renamed libraries to linkedLibraries using the transform method */\n| $ | {\"linkedLibraries\": libraries}, [\"libraries\"] | ~>\n/* Renamed workflowName and workflowVersion using the transform method */\n| $ | {\"workflowName\": workflow.name, \"workflowVersion\": workflow.version}, [\"workflow\"] |\n %}",
+            "DetailType": "${__workflow_run_state_change_event_detail_type__}",
+            "EventBusName": "${__event_bus_name__}",
+            "Source": "${__stack_source__}"
           }
         ]
       },
