@@ -1,3 +1,10 @@
-export type SchemaNamesList = 'completeDataDraft';
+import * as schemas from 'aws-cdk-lib/aws-eventschemas';
 
-export const schemaNames: SchemaNamesList[] = ['completeDataDraft'];
+export type SchemaNames = 'completeDataDraft';
+
+export const schemaNamesList: SchemaNames[] = ['completeDataDraft'];
+
+export interface buildSchemaProps {
+  registry: schemas.CfnRegistry;
+  schemaName: SchemaNames;
+}
