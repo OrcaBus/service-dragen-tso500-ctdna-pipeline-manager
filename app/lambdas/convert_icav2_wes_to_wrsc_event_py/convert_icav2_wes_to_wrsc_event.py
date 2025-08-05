@@ -126,8 +126,10 @@ from copy import deepcopy
 from datetime import datetime, timezone
 
 # Layer helpers
-from orcabus_api_tools.workflow.payload_helpers import get_latest_payload_from_workflow_run
-from orcabus_api_tools.workflow.workflow_run_helpers import get_workflow_run_from_portal_run_id
+from orcabus_api_tools.workflow import (
+    get_latest_payload_from_workflow_run,
+    get_workflow_run_from_portal_run_id
+)
 
 
 def handler(event, context):

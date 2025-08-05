@@ -161,45 +161,48 @@
             },
             "Compress vcfs": {
               "Type": "Map",
+              "Items": "{% $states.input.vcfIcav2UriList %}",
+              "ItemSelector": {
+                "vcfFileUri": "{% $states.context.Map.Item.Value %}"
+              },
               "ItemProcessor": {
                 "ProcessorConfig": {
                   "Mode": "INLINE"
                 },
-                "StartAt": "Tabix compress VCFs",
+                "StartAt": "Run Tabix Compression",
                 "States": {
-                  "Tabix compress VCFs": {
+                  "Run Tabix Compression": {
                     "Type": "Task",
-                    "Resource": "arn:aws:states:::lambda:invoke",
-                    "Output": {},
+                    "Resource": "arn:aws:states:::ecs:runTask.sync",
                     "Arguments": {
-                      "FunctionName": "${__tabix_compress_vcf_lambda_function_arn__}",
-                      "Payload": {
-                        "vcfFileUri": "{% $states.input.vcfFileUri %}"
+                      "LaunchType": "FARGATE",
+                      "Cluster": "${__cluster__}",
+                      "TaskDefinition": "${__task_definition__}",
+                      "NetworkConfiguration": {
+                        "AwsvpcConfiguration": {
+                          "Subnets": "{% $split('${__subnets__}', ',') %}",
+                          "SecurityGroups": "{% [ '${__security_group__}' ] %}"
+                        }
+                      },
+                      "Overrides": {
+                        "ContainerOverrides": [
+                          {
+                            "Name": "${__container_name__}",
+                            "Environment": [
+                              {
+                                "Name": "INPUT_VCF_URI",
+                                "Value": "{% $states.input.vcfFileUri %}"
+                              }
+                            ]
+                          }
+                        ]
                       }
                     },
-                    "Retry": [
-                      {
-                        "ErrorEquals": [
-                          "Lambda.ServiceException",
-                          "Lambda.AWSLambdaException",
-                          "Lambda.SdkClientException",
-                          "Lambda.TooManyRequestsException"
-                        ],
-                        "IntervalSeconds": 1,
-                        "MaxAttempts": 3,
-                        "BackoffRate": 2,
-                        "JitterStrategy": "FULL"
-                      }
-                    ],
                     "End": true
                   }
                 }
               },
-              "End": true,
-              "Items": "{% $states.input.vcfIcav2UriList %}",
-              "ItemSelector": {
-                "vcfFileUri": "{% $states.context.Map.Item.Value %}"
-              }
+              "End": true
             }
           }
         }

@@ -14,7 +14,6 @@ export type LambdaName =
   | 'getLibraries'
   | 'getMetadataTags'
   | 'getQcSummaryStatsFromRgidList'
-  | 'tabixCompressVcf'
   | 'uploadSamplesheetToCacheDirectory'
   | 'validateDraftPayload';
 
@@ -32,7 +31,6 @@ export const lambdaNamesList: LambdaName[] = [
   'getLibraries',
   'getMetadataTags',
   'getQcSummaryStatsFromRgidList',
-  'tabixCompressVcf',
   'uploadSamplesheetToCacheDirectory',
   'validateDraftPayload',
 ];
@@ -84,9 +82,6 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
   },
   getQcSummaryStatsFromRgidList: {
     needsOrcabusApiToolsLayer: true,
-  },
-  tabixCompressVcf: {
-    needsIcav2ToolsLayer: true,
   },
   uploadSamplesheetToCacheDirectory: {
     needsIcav2ToolsLayer: true,

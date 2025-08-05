@@ -2,6 +2,7 @@ import { LambdaName, LambdaObject } from '../lambdas/interfaces';
 import { IEventBus } from 'aws-cdk-lib/aws-events';
 import { StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 import { SsmParameterPaths } from '../ssm/interfaces';
+import { EcsFargateTaskConstruct } from '@orcabus/platform-cdk-constructs/ecs';
 
 export type StateMachineName =
   | 'populateDraftData'
@@ -22,6 +23,9 @@ export interface StepFunctionRequirements {
 
   // SSM Stuff
   needsSsmParameterStoreAccess?: boolean;
+
+  // ECS Stuff
+  needsTabixRunTaskPermissions?: boolean;
 }
 
 export interface StepFunctionInput {
@@ -32,6 +36,7 @@ export interface BuildStepFunctionProps extends StepFunctionInput {
   lambdaObjects: LambdaObject[];
   eventBus: IEventBus;
   ssmParameterPaths: SsmParameterPaths;
+  fargateTabixTaskObj: EcsFargateTaskConstruct;
   // Workflow management
   isNewWorkflowManagementEnabled: boolean;
 }
@@ -57,6 +62,7 @@ export const stepFunctionsRequirementsMap: Record<StateMachineName, StepFunction
   },
   handleIcav2AnalysisStateChangeEvent: {
     needsEventPutPermission: true,
+    needsTabixRunTaskPermissions: true,
   },
 };
 
@@ -83,6 +89,5 @@ export const stepFunctionToLambdasMap: Record<StateMachineName, LambdaName[]> = 
     'checkSampleHasSucceeded',
     'deleteCacheUri',
     'findVcfFiles',
-    'tabixCompressVcf',
   ],
 };

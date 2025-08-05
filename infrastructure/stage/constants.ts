@@ -6,6 +6,7 @@ export const APP_ROOT = path.join(__dirname, '../../app');
 export const LAMBDA_DIR = path.join(APP_ROOT, 'lambdas');
 export const STEP_FUNCTIONS_DIR = path.join(APP_ROOT, 'step-functions-templates');
 export const EVENT_SCHEMAS_DIR = path.join(APP_ROOT, 'schemas');
+export const ECS_DIR = path.join(APP_ROOT, 'ecs');
 
 /* Stack constants */
 export const STACK_PREFIX = 'orca-dragen-tso500-ctdna';

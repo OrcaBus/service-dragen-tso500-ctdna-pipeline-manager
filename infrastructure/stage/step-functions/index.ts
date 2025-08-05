@@ -82,6 +82,19 @@ function createStateMachineDefinitionSubstitutions(props: BuildStepFunctionProps
       props.ssmParameterPaths.prefixPipelineIdsByWorkflowVersion;
   }
 
+  if (sfnRequirements.needsTabixRunTaskPermissions) {
+    definitionSubstitutions['__cluster__'] = props.fargateTabixTaskObj.cluster.clusterArn;
+    definitionSubstitutions['__task_definition__'] =
+      props.fargateTabixTaskObj.taskDefinition.taskDefinitionArn;
+    definitionSubstitutions['__subnets__'] = props.fargateTabixTaskObj.cluster.vpc.privateSubnets
+      .map((subnet) => subnet.subnetId)
+      .join(',');
+    definitionSubstitutions['__security_group__'] =
+      props.fargateTabixTaskObj.securityGroup.securityGroupId;
+    definitionSubstitutions['__container_name__'] =
+      props.fargateTabixTaskObj.containerDefinition.containerName;
+  }
+
   return definitionSubstitutions;
 }
 
@@ -121,6 +134,33 @@ function wireUpStateMachinePermissions(props: WireUpPermissionsProps): void {
         {
           id: 'AwsSolutions-IAM5',
           reason: 'We need to give access to the full prefix for the SSM parameter store',
+        },
+      ],
+      true
+    );
+  }
+
+  if (sfnRequirements.needsTabixRunTaskPermissions) {
+    // Grant the state machine permissions to run the Fargate Tabix task
+    props.fargateTabixTaskObj.taskDefinition.grantRun(props.sfnObject);
+
+    /* Grant the state machine access to monitor the tasks */
+    props.sfnObject.addToRolePolicy(
+      new iam.PolicyStatement({
+        resources: [
+          `arn:aws:events:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:rule/StepFunctionsGetEventsForECSTaskRule`,
+        ],
+        actions: ['events:PutTargets', 'events:PutRule', 'events:DescribeRule'],
+      })
+    );
+
+    /* Will need cdk nag suppressions for this */
+    NagSuppressions.addResourceSuppressions(
+      props.sfnObject,
+      [
+        {
+          id: 'AwsSolutions-IAM5',
+          reason: 'Need ability to put targets and rules for ECS task monitoring',
         },
       ],
       true
@@ -184,6 +224,7 @@ export function buildAllStepFunctions(
         lambdaObjects: props.lambdaObjects,
         eventBus: props.eventBus,
         ssmParameterPaths: props.ssmParameterPaths,
+        fargateTabixTaskObj: props.fargateTabixTaskObj,
         isNewWorkflowManagementEnabled: props.isNewWorkflowManagementEnabled,
       })
     );

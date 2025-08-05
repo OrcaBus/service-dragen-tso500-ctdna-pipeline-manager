@@ -8,6 +8,7 @@ import {
   getStatelessApplicationStackProps,
 } from '../infrastructure/stage/config';
 import { StatefulApplicationStack } from '../infrastructure/stage/stateful-application-stack';
+import { PROD_ENVIRONMENT } from '@orcabus/platform-cdk-constructs/deployment-stack-pipeline';
 
 function synthesisMessageToString(sm: SynthesisMessage): string {
   return `${sm.entry.data} [${sm.id}]`;
@@ -21,6 +22,8 @@ describe('cdk-nag-stateless-toolchain-stack', () => {
     app,
     'StatelessApplicationStack',
     {
+      // Set the environment to test
+      env: PROD_ENVIRONMENT,
       // Pick the prod environment to test as it is the strictest
       ...getStatelessApplicationStackProps('PROD'),
     }

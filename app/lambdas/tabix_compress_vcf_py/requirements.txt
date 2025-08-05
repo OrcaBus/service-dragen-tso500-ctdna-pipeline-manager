@@ -1,2 +1,0 @@
-bgzip==0.5.0
-pytabix==0.1
