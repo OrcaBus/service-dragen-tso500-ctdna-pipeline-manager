@@ -4,7 +4,7 @@ export type SchemaNames = 'completeDataDraft';
 
 export const schemaNamesList: SchemaNames[] = ['completeDataDraft'];
 
-export interface buildSchemaProps {
+export interface BuildSchemaProps {
   registry: schemas.CfnRegistry;
   schemaName: SchemaNames;
 }
