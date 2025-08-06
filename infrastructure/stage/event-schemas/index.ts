@@ -3,7 +3,7 @@ import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { EVENT_SCHEMAS_DIR, SCHEMA_REGISTRY_NAME, SSM_SCHEMA_ROOT } from '../constants';
 import * as path from 'path';
 import * as fs from 'fs';
-import { schemaNamesList, buildSchemaProps } from './interfaces';
+import { schemaNamesList, BuildSchemaProps } from './interfaces';
 import { Construct } from 'constructs';
 import { camelCaseToKebabCase } from '../utils';
 
@@ -13,7 +13,7 @@ export function buildRegistry(scope: Construct, registryName: string): schemas.C
   });
 }
 
-export function buildSchema(scope: Construct, props: buildSchemaProps): schemas.CfnSchema {
+export function buildSchema(scope: Construct, props: BuildSchemaProps): schemas.CfnSchema {
   // Import the schema file from the schemas directory
   const schemaPath = path.join(
     EVENT_SCHEMAS_DIR,
