@@ -3,9 +3,11 @@ import { PythonUvFunction } from '@orcabus/platform-cdk-constructs/lambda';
 export type LambdaName =
   | 'checkNtsmInternalPassing'
   | 'checkSampleHasSucceeded'
+  | 'comparePayload'
   | 'convertIcav2WesToWrscEvent'
   | 'deleteCacheUri'
   | 'findVcfFiles'
+  | 'generateWruEventObjectWithMergedData'
   | 'generateMinimalSamplesheetFromFastqIdList'
   | 'getFastqIdListFromFastqRgidList'
   | 'getFastqListRgidsFromLibrary'
@@ -13,6 +15,7 @@ export type LambdaName =
   | 'getInstrumentRunIdFromFastqId'
   | 'getLibraries'
   | 'getMetadataTags'
+  | 'getWorkflowRunObject'
   | 'getQcSummaryStatsFromRgidList'
   | 'uploadSamplesheetToCacheDirectory'
   | 'validateDraftPayload';
@@ -20,9 +23,11 @@ export type LambdaName =
 export const lambdaNamesList: LambdaName[] = [
   'checkNtsmInternalPassing',
   'checkSampleHasSucceeded',
+  'comparePayload',
   'convertIcav2WesToWrscEvent',
   'deleteCacheUri',
   'findVcfFiles',
+  'generateWruEventObjectWithMergedData',
   'generateMinimalSamplesheetFromFastqIdList',
   'getFastqIdListFromFastqRgidList',
   'getFastqListRgidsFromLibrary',
@@ -30,6 +35,7 @@ export const lambdaNamesList: LambdaName[] = [
   'getInstrumentRunIdFromFastqId',
   'getLibraries',
   'getMetadataTags',
+  'getWorkflowRunObject',
   'getQcSummaryStatsFromRgidList',
   'uploadSamplesheetToCacheDirectory',
   'validateDraftPayload',
@@ -50,6 +56,7 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
   checkSampleHasSucceeded: {
     needsIcav2ToolsLayer: true,
   },
+  comparePayload: {},
   convertIcav2WesToWrscEvent: {
     needsOrcabusApiToolsLayer: true,
   },
@@ -58,6 +65,9 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
   },
   findVcfFiles: {
     needsIcav2ToolsLayer: true,
+  },
+  generateWruEventObjectWithMergedData: {
+    needsOrcabusApiToolsLayer: true,
   },
   generateMinimalSamplesheetFromFastqIdList: {
     needsIcav2ToolsLayer: true,
@@ -81,6 +91,9 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
     needsOrcabusApiToolsLayer: true,
   },
   getQcSummaryStatsFromRgidList: {
+    needsOrcabusApiToolsLayer: true,
+  },
+  getWorkflowRunObject: {
     needsOrcabusApiToolsLayer: true,
   },
   uploadSamplesheetToCacheDirectory: {

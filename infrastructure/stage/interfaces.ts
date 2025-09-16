@@ -23,3 +23,5 @@ export interface StatelessApplicationStackConfig {
   // Is new workflow enabled?
   isNewWorkflowManagementEnabled: boolean;
 }
+
+export type WorkflowVersionType = '2.6.0' | '2.6.1';

@@ -356,15 +356,84 @@
               "End": true,
               "Output": {
                 "subjectId": "{% $states.result.Payload.libraryObj.subject.subjectId %}",
-                "individualId": "{% $states.result.Payload.libraryObj.subject.individualSet[0].individualId %}"
+                "individualId": "{% $count($states.result.Payload.libraryObj.subject.individualSet) > 0 ? $states.result.Payload.libraryObj.subject.individualSet[0].individualId : $states.result.Payload.libraryObj.subject.subjectId %}"
               }
             }
           }
         }
       ],
-      "Next": "Get Inputs",
+      "Next": "Get libraries with readsets",
       "Assign": {
         "tags": "{% /* List to merge together */\n[\n    /* Start with the draft tags */\n    $draftTags,\n    /* Merge the results list together */\n    $merge($states.result)\n] \n/* Then merge these initial tags with states.result  */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
+      }
+    },
+    "Get libraries with readsets": {
+      "Type": "Parallel",
+      "Next": "Get Inputs",
+      "Branches": [
+        {
+          "StartAt": "For each rgid (readsets)",
+          "States": {
+            "For each rgid (readsets)": {
+              "Type": "Map",
+              "Items": "{% $tags.fastqRgidList ? $tags.fastqRgidList : [] %}",
+              "ItemProcessor": {
+                "ProcessorConfig": {
+                  "Mode": "INLINE"
+                },
+                "StartAt": "Get readset from rgid id",
+                "States": {
+                  "Get readset from rgid id": {
+                    "Type": "Task",
+                    "Resource": "arn:aws:states:::lambda:invoke",
+                    "Arguments": {
+                      "FunctionName": "${__get_fastq_id_list_from_fastq_rgid_list_lambda_function_arn__}",
+                      "Payload": {
+                        "fastqRgidList": "{% [$states.input] %}"
+                      }
+                    },
+                    "Retry": [
+                      {
+                        "ErrorEquals": [
+                          "Lambda.ServiceException",
+                          "Lambda.AWSLambdaException",
+                          "Lambda.SdkClientException",
+                          "Lambda.TooManyRequestsException"
+                        ],
+                        "IntervalSeconds": 1,
+                        "MaxAttempts": 3,
+                        "BackoffRate": 2,
+                        "JitterStrategy": "FULL"
+                      }
+                    ],
+                    "End": true,
+                    "Output": {
+                      "orcabusId": "{% $states.result.Payload.fastqIdList[0] %}",
+                      "rgid": "{% $states.input %}"
+                    }
+                  }
+                }
+              },
+              "End": true,
+              "Output": {
+                "library": "{% [\n  /* Draft libraries list */\n  $draftLibrariesList ~>\n  $single(function($libraryIter){\n    $libraryIter.libraryId = $tags.libraryId\n  }),\n  {\n    \"readsets\": $states.result\n  }\n] ~>\n$merge %}"
+              }
+            }
+          }
+        },
+        {
+          "StartAt": "Libraries with readsets placeholder",
+          "States": {
+            "Libraries with readsets placeholder": {
+              "Type": "Pass",
+              "Output": {},
+              "End": true
+            }
+          }
+        }
+      ],
+      "Assign": {
+        "libraries": "{% [ $states.result.(library) ] %}"
       }
     },
     "Get Inputs": {
@@ -478,7 +547,7 @@
     },
     "Add qc tags": {
       "Type": "Parallel",
-      "Next": "Is new workflow manager deployed",
+      "Next": "Generate WRU event",
       "Branches": [
         {
           "StartAt": "Get coverage and dup-frac estimates",
@@ -516,35 +585,12 @@
           }
         },
         {
-          "StartAt": "check ntsm passing",
+          "StartAt": "qc placeholder",
           "States": {
-            "check ntsm passing": {
-              "Type": "Task",
-              "Resource": "arn:aws:states:::lambda:invoke",
-              "Arguments": {
-                "FunctionName": "${__check_ntsm_internal_passing_lambda_function_arn__}",
-                "Payload": {
-                  "fastqRgidList": "{% $tags.fastqRgidList %}"
-                }
-              },
-              "Retry": [
-                {
-                  "ErrorEquals": [
-                    "Lambda.ServiceException",
-                    "Lambda.AWSLambdaException",
-                    "Lambda.SdkClientException",
-                    "Lambda.TooManyRequestsException"
-                  ],
-                  "IntervalSeconds": 1,
-                  "MaxAttempts": 3,
-                  "BackoffRate": 2,
-                  "JitterStrategy": "FULL"
-                }
-              ],
+            "qc placeholder": {
+              "Type": "Pass",
               "End": true,
-              "Output": {
-                "ntsmInternalPassing": "{% $states.result.Payload.related %}"
-              }
+              "Output": {}
             }
           }
         }
@@ -553,13 +599,89 @@
         "tags": "{% /* https://try.jsonata.org/05K2l3beH */\n/* List to merge together */\n[\n    /* Start with the tags */\n    $tags,\n    /* Merge the results list together */\n    $merge($states.result)\n] \n/* Then merge these initial tags with states.result  */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
       }
     },
+    "Generate WRU event": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "${__generate_wru_event_object_with_merged_data_lambda_function_arn__}",
+        "Payload": {
+          "portalRunId": "{% $draftDetail.portalRunId %}",
+          "libraries": "{% $libraries %}",
+          "payload": {
+            "version": "{% $draftPayload.version ? $draftPayload.version : '${__default_payload_version__}' %}",
+            "data": {
+              "inputs": "{% $inputs %}",
+              "tags": "{% $tags %}",
+              "engineParameters": "{% $engineParameters %}"
+            }
+          }
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Compare Payload",
+      "Assign": {
+        "draftWorkflowRunUpdate": "{% $states.result.Payload.workflowRunUpdate %}"
+      }
+    },
+    "Compare Payload": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "${__compare_payload_lambda_function_arn__}",
+        "Payload": {
+          "oldPayload": "{% $draftPayload ~> \n| $ | {}, [\"orcabusId\", \"refId\"] | %}",
+          "newPayload": "{% $draftWorkflowRunUpdate.payload %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Has Payload changed"
+    },
+    "Has Payload changed": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Next": "Is new workflow manager deployed",
+          "Condition": "{% $states.input.hasChanged %}",
+          "Comment": "Payload has changed"
+        }
+      ],
+      "Default": "Pass (1)"
+    },
     "Is new workflow manager deployed": {
       "Type": "Choice",
       "Choices": [
         {
-          "Next": "Push DRAFT Event",
-          "Condition": "{% /* ${__new_workflow_manager_is_deployed__} */ false %}",
-          "Comment": "New workflow manager is deployed"
+          "Condition": "{% ${__new_workflow_manager_is_deployed__} %}",
+          "Comment": "New workflow manager is deployed",
+          "Next": "Push DRAFT Event"
         }
       ],
       "Default": "Push DRAFT Event (legacy)"
@@ -571,12 +693,16 @@
         "Entries": [
           {
             "Detail": "{% $merge([\n  $draftDetail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $draftPayload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n])\n %}",
-            "DetailType": "${__workflow_run_state_change_event_detail_type__}",
+            "DetailType": "${__workflow_run_update_event_detail_type__}",
             "EventBusName": "${__event_bus_name__}",
             "Source": "${__stack_source__}"
           }
         ]
       },
+      "End": true
+    },
+    "Pass (1)": {
+      "Type": "Pass",
       "End": true
     },
     "Push DRAFT Event (legacy)": {
@@ -585,7 +711,7 @@
       "Arguments": {
         "Entries": [
           {
-            "Detail": "{% $merge([\n  $draftDetail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $draftPayload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n]) ~>\n/* Renamed libraries to linkedLibraries using the transform method */\n| $ | {\"linkedLibraries\": libraries}, [\"libraries\"] | ~>\n/* Renamed workflowName and workflowVersion using the transform method */\n| $ | {\"workflowName\": workflow.name, \"workflowVersion\": workflow.version}, [\"workflow\"] |\n %}",
+            "Detail": "{% $merge([\n  $draftDetail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"libraries\": ($libraries ~> | $ | {}, [\"readsets\"] |),\n    \"payload\": (\n      $merge([\n        $draftPayload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n]) ~>\n/* Renamed libraries to linkedLibraries using the transform method */\n| $ | {\"linkedLibraries\": libraries}, [\"libraries\"] | ~>\n/* Renamed workflowName and workflowVersion using the transform method */\n| $ | {\"workflowName\": workflow.name, \"workflowVersion\": workflow.version}, [\"workflow\"] |\n %}",
             "DetailType": "${__workflow_run_state_change_event_detail_type__}",
             "EventBusName": "${__event_bus_name__}",
             "Source": "${__stack_source__}"
