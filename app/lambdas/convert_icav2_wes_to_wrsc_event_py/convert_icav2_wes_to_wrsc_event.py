@@ -168,7 +168,7 @@ def handler(event, context):
         outputs = None
 
     # Update the latest payload with the outputs if available
-    if outputs:
+    if outputs is not None:
         latest_payload['data']['outputs'] = outputs
 
     # Update the workflow object to contain 'name' and 'version'

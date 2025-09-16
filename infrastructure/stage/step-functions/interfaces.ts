@@ -76,6 +76,9 @@ export const stepFunctionToLambdasMap: Record<StateMachineName, LambdaName[]> = 
     'getLibraries',
     'getQcSummaryStatsFromRgidList',
     'checkNtsmInternalPassing',
+    'getWorkflowRunObject',
+    'comparePayload',
+    'generateWruEventObjectWithMergedData',
   ],
   validateDraftDataAndPutReadyEvent: ['validateDraftPayload'],
   readyEventToIcav2WesRequestEvent: [

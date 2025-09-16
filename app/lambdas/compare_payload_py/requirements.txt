@@ -1,0 +1,2 @@
+deepdiff==8.6.0
+requests==2.32.5

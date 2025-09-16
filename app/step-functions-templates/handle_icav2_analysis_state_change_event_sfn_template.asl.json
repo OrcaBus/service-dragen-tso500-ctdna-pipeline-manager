@@ -40,7 +40,8 @@
       "Next": "If Succeeded Status",
       "Assign": {
         "workflowRunStateChangeEvent": "{% $states.result.Payload.workflowRunStateChangeEvent %}",
-        "engineParameters": "{% /* Includes the cache uri */ $states.result.Payload.workflowRunStateChangeEvent.payload.data.engineParameters %}"
+        "engineParameters": "{% /* Includes the cache uri */ $states.result.Payload.workflowRunStateChangeEvent.payload.data.engineParameters %}",
+        "libraries": "{% $states.result.Payload.workflowRunStateChangeEvent.libraries %}"
       }
     },
     "If Succeeded Status": {
@@ -214,7 +215,7 @@
       "Choices": [
         {
           "Next": "Put WRSC Event",
-          "Condition": "{% /* ${__new_workflow_manager_is_deployed__} */ false %}"
+          "Condition": "{% ${__new_workflow_manager_is_deployed__} %}"
         }
       ],
       "Default": "Put WRSC Event Legacy"
@@ -225,8 +226,8 @@
       "Arguments": {
         "Entries": [
           {
-            "Detail": "{% /* Merge workflowRunStateChangeEvent with the status object */\n$merge(\n  $workflowRunStateChangeEvent,\n  {\n    \"status\": $status\n  }\n) %}",
-            "DetailType": "${__workflow_run_state_change_event_detail_type__}",
+            "Detail": "{% /* Merge workflowRunStateChangeEvent with the status object */\n$merge([\n  $workflowRunStateChangeEvent,\n  {\n    \"timestamp\": $now(),\n    \"status\": $status\n  }\n]) %}",
+            "DetailType": "${__workflow_run_update_event_detail_type__}",
             "EventBusName": "${__event_bus_name__}",
             "Source": "${__stack_source__}"
           }
@@ -240,7 +241,7 @@
       "Arguments": {
         "Entries": [
           {
-            "Detail": "{% /* Merge workflowRunStateChangeEvent with the status object */\n$merge([\n  $workflowRunStateChangeEvent,\n  {\n    \"status\": $status\n  }\n]) ~>\n/* Renamed libraries to linkedLibraries using the transform method */\n| $ | {\"linkedLibraries\": libraries}, [\"libraries\"] | ~>\n/* Renamed workflowName and workflowVersion using the transform method */\n| $ | {\"workflowName\": workflow.name, \"workflowVersion\": workflow.version}, [\"workflow\"] |\n %}",
+            "Detail": "{% /* Merge workflowRunStateChangeEvent with the status object */\n$merge([\n  $workflowRunStateChangeEvent,\n  {\n    \"timestamp\": $now(),\n    \"status\": $status,\n    \"libraries\": ($libraries ~> | $ | {}, [\"readsets\"] |)\n  }\n]) ~>\n/* Renamed libraries to linkedLibraries using the transform method */\n| $ | {\"linkedLibraries\": libraries}, [\"libraries\"] | ~>\n/* Renamed workflowName and workflowVersion using the transform method */\n| $ | {\"workflowName\": workflow.name, \"workflowVersion\": workflow.version}, [\"workflow\"] |\n %}",
             "DetailType": "${__workflow_run_state_change_event_detail_type__}",
             "EventBusName": "${__event_bus_name__}",
             "Source": "${__stack_source__}"
