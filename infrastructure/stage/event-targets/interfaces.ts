@@ -7,21 +7,21 @@ import { StepFunctionObject } from '../step-functions/interfaces';
  * EventBridge Target Interfaces
  */
 export type EventBridgeTargetNameList =
-  | 'DraftLegacyToCompleteDraftSfnTarget'
-  | 'DraftToCompleteDraftSfnTarget'
-  | 'DraftLegacyToValidateDraftAndReadySfnTarget'
-  | 'DraftToValidateDraftAndReadySfnTarget'
-  | 'ReadyLegacyToIcav2WesSubmittedSfnTarget'
-  | 'ReadyToIcav2WesSubmittedSfnTarget'
+  | 'draftLegacyToCompleteDraftSfnTarget'
+  | 'draftToCompleteDraftSfnTarget'
+  | 'draftLegacyToValidateDraftAndReadySfnTarget'
+  | 'draftToValidateDraftAndReadySfnTarget'
+  | 'readyLegacyToIcav2WesSubmittedSfnTarget'
+  | 'readyToIcav2WesSubmittedSfnTarget'
   | 'icav2WascEventToWrscSfnTarget';
 
 export const eventBridgeTargetsNameList: EventBridgeTargetNameList[] = [
-  'DraftLegacyToCompleteDraftSfnTarget',
-  'DraftToCompleteDraftSfnTarget',
-  'DraftLegacyToValidateDraftAndReadySfnTarget',
-  'DraftToValidateDraftAndReadySfnTarget',
-  'ReadyLegacyToIcav2WesSubmittedSfnTarget',
-  'ReadyToIcav2WesSubmittedSfnTarget',
+  'draftLegacyToCompleteDraftSfnTarget',
+  'draftToCompleteDraftSfnTarget',
+  'draftLegacyToValidateDraftAndReadySfnTarget',
+  'draftToValidateDraftAndReadySfnTarget',
+  'readyLegacyToIcav2WesSubmittedSfnTarget',
+  'readyToIcav2WesSubmittedSfnTarget',
   'icav2WascEventToWrscSfnTarget',
 ];
 

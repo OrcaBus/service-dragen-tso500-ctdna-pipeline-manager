@@ -160,7 +160,7 @@ export function buildAllEventRules(
   // Iterate over the eventBridgeNameList and create the event rules
   for (const ruleName of eventBridgeRuleNameList) {
     switch (ruleName) {
-      case 'WrscDraftLegacy': {
+      case 'wrscDraftLegacy': {
         eventBridgeRuleObjects.push({
           ruleName: ruleName,
           ruleObject: buildWorkflowRunStateChangeDraftLegacyEventRule(scope, {
@@ -170,7 +170,7 @@ export function buildAllEventRules(
         });
         break;
       }
-      case 'WrscDraft': {
+      case 'wrscDraft': {
         eventBridgeRuleObjects.push({
           ruleName: ruleName,
           ruleObject: buildWorkflowRunStateChangeDraftEventRule(scope, {
@@ -180,7 +180,7 @@ export function buildAllEventRules(
         });
         break;
       }
-      case 'WrscReadyLegacy': {
+      case 'wrscReadyLegacy': {
         eventBridgeRuleObjects.push({
           ruleName: ruleName,
           ruleObject: buildWorkflowRunStateChangeReadyLegacyEventRule(scope, {
@@ -190,7 +190,7 @@ export function buildAllEventRules(
         });
         break;
       }
-      case 'WrscReady': {
+      case 'wrscReady': {
         eventBridgeRuleObjects.push({
           ruleName: ruleName,
           ruleObject: buildWorkflowRunStateChangeReadyEventRule(scope, {
@@ -200,7 +200,7 @@ export function buildAllEventRules(
         });
         break;
       }
-      case 'Icav2WesAnalysisStateChange': {
+      case 'icav2WesAnalysisStateChange': {
         eventBridgeRuleObjects.push({
           ruleName: ruleName,
           ruleObject: buildIcav2WesAnalysisStateChangeRule(scope, {
