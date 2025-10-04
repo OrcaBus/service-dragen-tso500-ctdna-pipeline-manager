@@ -157,10 +157,10 @@ def handler(event, context):
 
     # Check if the status was SUCCEEDED, if so we populate the 'outputs' data payload
     if icav2_wes_event['status'] == 'SUCCEEDED':
+        inputs = latest_payload['data']['inputs']
         # We want to generate the following output dict
-        inputs = icav2_wes_event['inputs']
         outputs = {
-          "sampleResultsDirRelPath": f"Results/{inputs['sample_pair_ids'][0]}/",
+          "sampleResultsDirRelPath": f"Results/{inputs['sampleName']}/",
           "tso500NextflowLogsRelPath": "TSO500_Nextflow_Logs/",
           "LogsIntermediatesRelPath": "Logs_Intermediates/",
         }
