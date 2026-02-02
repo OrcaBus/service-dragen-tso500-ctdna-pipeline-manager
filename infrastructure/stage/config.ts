@@ -3,7 +3,6 @@ import {
   DEFAULT_PAYLOAD_VERSION,
   DEFAULT_WORKFLOW_VERSION,
   EVENT_BUS_NAME,
-  NEW_WORKFLOW_MANAGER_IS_DEPLOYED,
   SSM_PARAMETER_PATH_CACHE_PREFIX,
   SSM_PARAMETER_PATH_DEFAULT_WORKFLOW_VERSION,
   SSM_PARAMETER_PATH_ICAV2_PROJECT_ID,
@@ -91,8 +90,5 @@ export const getStatelessApplicationStackProps = (
 
     // Event Bus Object
     eventBusName: EVENT_BUS_NAME,
-
-    // Is the new workflow management system enabled?
-    isNewWorkflowManagementEnabled: NEW_WORKFLOW_MANAGER_IS_DEPLOYED[stage],
   };
 };

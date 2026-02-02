@@ -62,8 +62,6 @@ function createStateMachineDefinitionSubstitutions(props: BuildStepFunctionProps
     definitionSubstitutions['__default_payload_version__'] = DEFAULT_PAYLOAD_VERSION;
     definitionSubstitutions['__fastq_decompression_request_detail_type__'] =
       FASTQ_DECOMPRESSION_DETAIL_TYPE;
-    definitionSubstitutions['__new_workflow_manager_is_deployed__'] =
-      props.isNewWorkflowManagementEnabled.toString();
   }
 
   if (sfnRequirements.needsSsmParameterStoreAccess) {
@@ -228,7 +226,6 @@ export function buildAllStepFunctions(
         eventBus: props.eventBus,
         ssmParameterPaths: props.ssmParameterPaths,
         fargateTabixTaskObj: props.fargateTabixTaskObj,
-        isNewWorkflowManagementEnabled: props.isNewWorkflowManagementEnabled,
       })
     );
   }
