@@ -147,6 +147,7 @@ export function buildAllEventRules(
             eventBus: props.eventBus,
           }),
         });
+        break;
       }
     }
   }
