@@ -17,10 +17,12 @@ export type LambdaName =
   | 'validateDraftPayload'
   | 'postSchemaValidation'
   // Ready-to-ICAv2 WES Request lambda functions
+  | 'addReadyDelayComment'
   | 'getInstrumentRunIdFromFastqId'
   | 'generateMinimalSamplesheetFromFastqIdList'
   | 'uploadSamplesheetToCacheDirectory'
   // Post submission
+  | 'addWesFailureComment'
   | 'convertIcav2WesToWrscEvent'
   | 'checkSampleHasSucceeded'
   | 'deleteCacheUri'
@@ -45,10 +47,12 @@ export const lambdaNamesList: LambdaName[] = [
   'validateDraftPayload',
   'postSchemaValidation',
   // Ready-to-ICAv2 WES Request lambda functions
+  'addReadyDelayComment',
   'getInstrumentRunIdFromFastqId',
   'generateMinimalSamplesheetFromFastqIdList',
   'uploadSamplesheetToCacheDirectory',
   // Post submission
+  'addWesFailureComment',
   'convertIcav2WesToWrscEvent',
   'checkSampleHasSucceeded',
   'deleteCacheUri',
@@ -112,6 +116,9 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
     needsExternalBucketInfo: true,
   },
   // Ready-to-ICAv2 WES Request lambda functions
+  addReadyDelayComment: {
+    needsOrcabusApiToolsLayer: true,
+  },
   getInstrumentRunIdFromFastqId: {
     needsOrcabusApiToolsLayer: true,
   },
@@ -122,6 +129,9 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
     needsIcav2ToolsLayer: true,
   },
   // Post submission
+  addWesFailureComment: {
+    needsOrcabusApiToolsLayer: true,
+  },
   convertIcav2WesToWrscEvent: {
     needsOrcabusApiToolsLayer: true,
   },
