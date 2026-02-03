@@ -20,6 +20,7 @@ from typing import Dict, Tuple
 import logging
 from os import environ
 
+from orcabus_api_tools.filemanager.errors import S3FileNotFoundError
 # Wrapica imports
 from wrapica.project_data import coerce_data_id_or_uri_to_project_data_obj, get_project_data_obj_by_id
 from libica.openapi.v3 import ApiException
@@ -28,6 +29,8 @@ from wrapica.project_pipelines import get_project_pipeline_obj
 
 # Layer imports
 from orcabus_api_tools.workflow import add_comment_to_workflow_run, get_workflow_run
+from orcabus_api_tools.filemanager import get_s3_object_id_from_s3_uri
+
 from icav2_tools import set_icav2_env_vars
 
 # Globals
@@ -113,10 +116,27 @@ def validate_inputs(
         ])
 
     # Remove empty values from list
+    data_uris = list(filter(
+        lambda uri_iter_: (
+            # Is not empty
+                uri_iter_ is not None
+        )
+    ))
+
+    # Confirm each data uri is available from the filemanager
+    for data_uri in data_uris:
+        # Try to get the object from the filemanager
+        try:
+            get_s3_object_id_from_s3_uri(data_uri)
+        except S3FileNotFoundError as e:
+            return False, f"Data uri '{data_uri}' cannot be found by the filemanager, are you sure it exists?"
+
     # Or externally mounted data uris (e.g. s3://reference-data-bucket/...)
     data_uris = list(filter(
         lambda uri_iter_: (
-            uri_iter_ is not None and not (
+            # Doesn't belong to test-data bucket
+            # Doesn't belong to the project bucket
+            not (
                 uri_iter_.startswith(f"s3://{environ[TEST_BUCKET_ENV_VAR]}/") or
                 uri_iter_.startswith(project_prefix)
             )

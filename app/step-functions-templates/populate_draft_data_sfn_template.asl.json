@@ -21,7 +21,9 @@
       "Resource": "arn:aws:states:::lambda:invoke",
       "Arguments": {
         "FunctionName": "${__validate_draft_payload_lambda_function_arn__}",
-        "Payload": "{% $data %}"
+        "Payload": {
+          "data": "{% $data %}"
+        }
       },
       "Retry": [
         {
@@ -253,7 +255,8 @@
       "Arguments": {
         "FunctionName": "${__get_libraries_lambda_function_arn__}",
         "Payload": {
-          "libraries": "{% $librariesList %}"
+          "libraries": "{% $librariesList %}",
+          "rgidList": "{% $rgidList %}"
         }
       },
       "Retry": [

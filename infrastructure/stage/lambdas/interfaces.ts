@@ -71,6 +71,7 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
     needsOrcabusApiToolsLayer: true,
   },
   getProjectBaseUriFromProjectId: {
+    needsIcav2ToolsLayer: true,
     needsOrcabusApiToolsLayer: true,
   },
   getFastqIdListFromFastqRgidList: {
