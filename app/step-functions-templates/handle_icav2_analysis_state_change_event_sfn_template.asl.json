@@ -208,7 +208,122 @@
           }
         }
       ],
-      "Next": "Put WRSC Event"
+      "Next": "Handle Filemanager"
+    },
+    "Handle Filemanager": {
+      "Type": "Parallel",
+      "Next": "Put WRSC Event",
+      "Branches": [
+        {
+          "StartAt": "Set Handle FM vars",
+          "States": {
+            "Set Handle FM vars": {
+              "Type": "Pass",
+              "Next": "Add the portal run id attributes",
+              "Assign": {
+                "fmWaitCount": 0,
+                "fmMaxWaitCount": 12
+              }
+            },
+            "Add the portal run id attributes": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Output": "{% $states.result.Payload %}",
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "Arguments": {
+                "FunctionName": "${__add_portal_run_id_attributes_lambda_function_arn__}",
+                "Payload": {
+                  "outputUri": "{% $engineParameters.outputUri %}",
+                  "portalRunId": "{% $workflowRunStateChangeEvent.portalRunId %}"
+                }
+              },
+              "Next": "Wait Five Seconds for FM to sync"
+            },
+            "Sync Filemanager Post Completion Check": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Arguments": {
+                "FunctionName": "${__sync_filemanager_lambda_function_arn__}",
+                "Payload": {
+                  "outputUri": "{% $engineParameters.outputUri %}",
+                  "portalRunId": "{% $workflowRunStateChangeEvent.portalRunId %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "Next": "Check if synced",
+              "Output": {
+                "isSynced": "{% $states.result.Payload.isSynced %}"
+              }
+            },
+            "Check if synced": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Next": "Filemanager synced",
+                  "Condition": "{% $states.input.isSynced %}"
+                },
+                {
+                  "Next": "Filemanager failed to sync",
+                  "Condition": "{% $fmWaitCount > $fmMaxWaitCount %}",
+                  "Comment": "Filemanager failed to sync"
+                }
+              ],
+              "Default": "Wait Five Seconds for FM to sync"
+            },
+            "Wait Five Seconds for FM to sync": {
+              "Type": "Wait",
+              "Seconds": 5,
+              "Next": "Sync Filemanager Post Completion Check",
+              "Assign": {
+                "fmWaitCount": "{% $fmWaitCount + 1 %}"
+              }
+            },
+            "Filemanager synced": {
+              "Type": "Pass",
+              "End": true
+            },
+            "Filemanager failed to sync": {
+              "Type": "Fail",
+              "Error": "FileManager.SyncTimeout"
+            }
+          }
+        },
+        {
+          "StartAt": "Handle FM Placeholder",
+          "States": {
+            "Handle FM Placeholder": {
+              "Type": "Pass",
+              "End": true
+            }
+          }
+        }
+      ]
     },
     "Put WRSC Event": {
       "Type": "Task",
