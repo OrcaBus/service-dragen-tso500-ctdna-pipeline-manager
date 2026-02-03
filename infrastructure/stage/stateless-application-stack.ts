@@ -55,7 +55,6 @@ export class StatelessApplicationStack extends cdk.Stack {
       eventBus: orcabusMainEventBus,
       ssmParameterPaths: props.ssmParameterPaths,
       fargateTabixTaskObj: fargateTabixTaskObj,
-      isNewWorkflowManagementEnabled: props.isNewWorkflowManagementEnabled,
     });
 
     // Add event rules

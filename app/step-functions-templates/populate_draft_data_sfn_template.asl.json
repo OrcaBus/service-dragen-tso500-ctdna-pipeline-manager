@@ -668,23 +668,12 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Next": "Is new workflow manager deployed",
+          "Next": "Push DRAFT Event",
           "Condition": "{% $states.input.hasChanged %}",
           "Comment": "Payload has changed"
         }
       ],
       "Default": "Pass (1)"
-    },
-    "Is new workflow manager deployed": {
-      "Type": "Choice",
-      "Choices": [
-        {
-          "Condition": "{% ${__new_workflow_manager_is_deployed__} %}",
-          "Comment": "New workflow manager is deployed",
-          "Next": "Push DRAFT Event"
-        }
-      ],
-      "Default": "Push DRAFT Event (legacy)"
     },
     "Push DRAFT Event": {
       "Type": "Task",
@@ -703,21 +692,6 @@
     },
     "Pass (1)": {
       "Type": "Pass",
-      "End": true
-    },
-    "Push DRAFT Event (legacy)": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::events:putEvents",
-      "Arguments": {
-        "Entries": [
-          {
-            "Detail": "{% $merge([\n  $draftDetail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"libraries\": ($libraries ~> | $ | {}, [\"readsets\"] |),\n    \"payload\": (\n      $merge([\n        $draftPayload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n]) ~>\n/* Renamed libraries to linkedLibraries using the transform method */\n| $ | {\"linkedLibraries\": libraries}, [\"libraries\"] | ~>\n/* Renamed workflowName and workflowVersion using the transform method */\n| $ | {\"workflowName\": workflow.name, \"workflowVersion\": workflow.version}, [\"workflow\"] |\n %}",
-            "DetailType": "${__workflow_run_state_change_event_detail_type__}",
-            "EventBusName": "${__event_bus_name__}",
-            "Source": "${__stack_source__}"
-          }
-        ]
-      },
       "End": true
     }
   },

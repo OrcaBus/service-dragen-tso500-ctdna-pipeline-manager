@@ -19,9 +19,6 @@ export interface StatelessApplicationStackConfig {
 
   // Event Stuff
   eventBusName: string;
-
-  // Is new workflow enabled?
-  isNewWorkflowManagementEnabled: boolean;
 }
 
 export type WorkflowVersionType = '2.6.0' | '2.6.1';
