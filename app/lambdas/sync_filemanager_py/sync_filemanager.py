@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 """
-Sync the filemanager to add portalRunId tags to any files downstream of the output uri.
-
-We need this as we have just created compressed VCF files post -ICA analysis and need to tag them appropriately.
-
-If we don't do this, the downstream PierianDx service can sometimes not find these files.
+Validate that the filemanager is synchronized with ICAv2 for files downstream of the output URI.
+This Lambda compares the number of files recorded in the filemanager for a given portalRunId
+with the number of files present in ICAv2 under the corresponding project and folder.
+It does not add or modify any tags; tagging is handled separately (e.g. by add_portal_run_id_attributes).
 """
 
 # Standard imports
@@ -26,10 +25,17 @@ logger.setLevel(logging.INFO)
 
 def handler(event, context):
     """
-    List the files in the filemanager recursively
-    :param event:
-    :param context:
-    :return:
+    Check synchronization status between filemanager and ICAv2 for a given output URI and portal run ID.
+
+    Retrieves files from the filemanager tagged with the given portalRunId and filtered by the output URI
+    (bucket and key prefix), retrieves corresponding files from ICAv2 via find_project_data_bulk, and compares
+    the counts.
+
+    Returns a JSON object with an isSynced boolean indicating whether the counts match.
+
+    :param event: Dict containing at least 'outputUri' and 'portalRunId'.
+    :param context: Lambda context (unused).
+    :return: Dict with key 'isSynced' (True if synchronized, False otherwise).
     """
     # Set icav2 env vars
     set_icav2_env_vars()
@@ -54,6 +60,11 @@ def handler(event, context):
             file_obj_iter_['key'].startswith(s3_key_prefix)
         ),
         # Get the files from the filemanager
+        # NOTE: This call depends on the "Add the portal run id attributes" workflow step
+        # having completed and the filemanager exposing the portalRunId attribute without
+        # propagation delay. If the filemanager is eventually consistent, some recently
+        # tagged files may not be returned here on the first invocation, in which case
+        # the length check below will fail and the caller is expected to retry later.
         list_files_from_portal_run_id(portal_run_id)
     ))
 
@@ -64,7 +75,9 @@ def handler(event, context):
         data_type='FILE'
     )
 
-    # We try again in a few minutes
+    # If counts differ, report not-synced;
+    # the calling Step Functions workflow handles retries as needed
+    # In this case we retry after five seconds
     if len(filemanager_files) != len(icav2_project_data_list):
         logger.info(
             f"Filemanager has {len(filemanager_files)} files, "

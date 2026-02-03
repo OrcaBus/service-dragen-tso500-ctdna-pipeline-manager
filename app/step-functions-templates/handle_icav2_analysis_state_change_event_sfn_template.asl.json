@@ -250,7 +250,7 @@
                   "portalRunId": "{% $workflowRunStateChangeEvent.portalRunId %}"
                 }
               },
-              "Next": "Sync Filemanager Post Completion Check"
+              "Next": "Wait Five Seconds for FM to sync"
             },
             "Sync Filemanager Post Completion Check": {
               "Type": "Task",
@@ -310,7 +310,7 @@
             },
             "Filemanager failed to sync": {
               "Type": "Fail",
-              "Error": "FileManagerFail"
+              "Error": "FileManager.SyncTimeout"
             }
           }
         },

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Add portal run id attributes from the filemanager
+Add portal run id attributes to the filemanager
 """
 
 # Standard imports
@@ -23,6 +23,12 @@ def handler(event, context):
     # Get the inputs
     output_uri = event.get("outputUri")
     portal_run_id = event.get("portalRunId")
+
+    # Confirm inputs are provided
+    if output_uri is None:
+        raise ValueError("The outputUri must be provided")
+    if portal_run_id is None:
+        raise ValueError("The portalRunId must be provided")
 
     # Get the output uri and key
     output_uri_parsed = urlparse(output_uri)
@@ -48,3 +54,7 @@ def handler(event, context):
             }
         ]
     )
+
+    return {
+        "status": "success"
+    }
