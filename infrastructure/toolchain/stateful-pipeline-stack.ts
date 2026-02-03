@@ -10,6 +10,9 @@ export class StatefulPipelineStack extends cdk.Stack {
     super(scope, id, props);
 
     new DeploymentStackPipeline(this, 'StatefulDragenTso500CtdnaPipeline', {
+      unitAppTestConfig: {
+        command: [],
+      },
       githubBranch: 'main',
       githubRepo: REPO_NAME,
       stack: StatefulApplicationStack,
