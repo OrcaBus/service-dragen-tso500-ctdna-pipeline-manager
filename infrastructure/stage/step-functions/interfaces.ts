@@ -91,5 +91,7 @@ export const stepFunctionToLambdasMap: Record<StateMachineName, LambdaName[]> = 
     'checkSampleHasSucceeded',
     'deleteCacheUri',
     'findVcfFiles',
+    'addPortalRunIdAttributes',
+    'syncFilemanager',
   ],
 };

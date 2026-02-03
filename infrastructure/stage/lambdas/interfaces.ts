@@ -24,7 +24,9 @@ export type LambdaName =
   | 'convertIcav2WesToWrscEvent'
   | 'checkSampleHasSucceeded'
   | 'deleteCacheUri'
-  | 'findVcfFiles';
+  | 'findVcfFiles'
+  | 'addPortalRunIdAttributes'
+  | 'syncFilemanager';
 
 export const lambdaNamesList: LambdaName[] = [
   // Pre-Draft Complete lambda functions
@@ -51,6 +53,8 @@ export const lambdaNamesList: LambdaName[] = [
   'checkSampleHasSucceeded',
   'deleteCacheUri',
   'findVcfFiles',
+  'addPortalRunIdAttributes',
+  'syncFilemanager',
 ];
 
 export interface LambdaRequirements {
@@ -128,6 +132,13 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
     needsIcav2ToolsLayer: true,
   },
   findVcfFiles: {
+    needsIcav2ToolsLayer: true,
+  },
+  addPortalRunIdAttributes: {
+    needsOrcabusApiToolsLayer: true,
+  },
+  syncFilemanager: {
+    needsOrcabusApiToolsLayer: true,
     needsIcav2ToolsLayer: true,
   },
 };
