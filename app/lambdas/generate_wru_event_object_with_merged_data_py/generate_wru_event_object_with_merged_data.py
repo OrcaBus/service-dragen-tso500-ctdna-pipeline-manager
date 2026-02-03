@@ -48,6 +48,12 @@ def handler(event, context):
     # Merge the data from the dragen draft payload into the draft payload
     new_data_object = payload['data'].copy()
 
+    # Remove any top-level keys in new_data_object where the value is null
+    new_data_object = dict(filter(
+        lambda kv_iter_: kv_iter_[1] is not None,
+        new_data_object.items()
+    ))
+
     # Update the inputs with the dragen draft payload data
     draft_workflow_update["payload"] = {
         "version": payload['version'],

@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 
+"""
+Download the draft schema from AWS schema registry, validate it against the current schema, and return the results.
+
+If event.addCommentOnError is set to True, add a comment to the workflow run on validation failure.
+"""
+
 # Imports
-import json
 import boto3
 import typing
 import jsonschema
-from os import environ
 from typing import Dict
-
+import json
+from os import environ
+import logging
 from jsonschema import ValidationError
+
+# Layer imports
+from orcabus_api_tools.workflow import add_comment_to_workflow_run
 
 # Type checking imports
 if typing.TYPE_CHECKING:
@@ -18,6 +27,12 @@ if typing.TYPE_CHECKING:
 # Globals
 SSM_REGISTRY_NAME_ENV_VAR = "SSM_REGISTRY_NAME"
 SSM_SCHEMA_NAME_ENV_VAR = "SSM_SCHEMA_NAME"
+WORKFLOW_NAME_ENV_VAR = "WORKFLOW_NAME"
+COMMENT_AUTHOR = "{WORKFLOW_NAME}-workflow-validation-service"
+
+# Set logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def get_ssm_parameter_value(parameter_name: str) -> str:
@@ -63,17 +78,33 @@ def get_schema_from_registry(
 
 def validate_draft_schema(
         json_schema: str,
-        json_body: str
+        json_body: str,
+        workflow_run_id: str = None,
+        comment_error: bool = False
 ) -> bool:
     """
     Download the draft schema, validate it against the current schema, and print the results.
+
+    :param json_schema: The current schema as a JSON string.
+    :param json_body: The draft schema as a JSON string.
+    :param workflow_run_id: The workflow run ID to add comments to (if any).
+    :param comment_error: Whether to add a comment to the workflow run on validation error.
     """
     try:
         jsonschema.validate(
             instance=json.loads(json_body),
-            schema=json.loads(json_schema)
+            schema=json.loads(json_schema),
         )
-    except ValidationError:
+    except ValidationError as e:
+        logger.info(f"Failed validation, {e}")
+        if comment_error:
+            add_comment_to_workflow_run(
+                workflow_run_orcabus_id=workflow_run_id,
+                comment=f"Draft schema validation failed: {e.message} at \"{e.json_path}\"",
+                author=COMMENT_AUTHOR.format(
+                    WORKFLOW_NAME=environ.get(WORKFLOW_NAME_ENV_VAR)
+                )
+            )
         return False
     return True
 
@@ -83,6 +114,15 @@ def handler(event, context) -> Dict[str, bool]:
     Given a draft schema, validate it against the current schema and print the results.
     :return:
     """
+    """
+        Given a draft schema, validate it against the current schema and print the results.
+        :return:
+        """
+    # Get the event data
+    payload_data = event.get('data')
+    workflow_run_id = event.get("workflowRunId", "")
+    comment_error = event.get("addCommentOnError", False)
+
     # Get the SSM parameters
     schema_registry = get_ssm_parameter_value(environ[SSM_REGISTRY_NAME_ENV_VAR])
     schema_name = json.loads(get_ssm_parameter_value(environ[SSM_SCHEMA_NAME_ENV_VAR]))['schemaName']
@@ -93,62 +133,16 @@ def handler(event, context) -> Dict[str, bool]:
         schema_name=schema_name
     )
 
-    # Get the draft schema from the schema registry
+    # Validate the draft schema against the current schema
+    is_valid_schema = validate_draft_schema(
+        current_schema,
+        # Assuming the event contains the draft schema as a JSON string
+        json.dumps(payload_data),
+        workflow_run_id=workflow_run_id,
+        comment_error=comment_error
+    )
+
+    # Return if the schema is not valid
     return {
-        "isValid": validate_draft_schema(
-            current_schema,
-            # Assuming the event contains the draft schema as a JSON string
-            json.dumps(event)
-        )
+        "isValid": is_valid_schema
     }
-
-
-if __name__ == "__main__":
-    from os import environ
-    import json
-
-    environ['AWS_PROFILE'] = 'umccr-development'
-    environ["SSM_REGISTRY_NAME"] = '/orcabus/workflows/dragen-tso500-ctdna/schemas/registry'
-    environ["SSM_SCHEMA_NAME"] = '/orcabus/workflows/dragen-tso500-ctdna/schemas/complete-data-draft/latest'
-    print(json.dumps(
-        handler(
-            {
-                "inputs": {
-                    "libraryId": "L2401531",
-                    "fastqListRows": [
-                        {
-                            "rgid": "CTGAAGCT+TCAGAGCC.1.241024_A00130_0336_BHW7MVDSXC",
-                            "rglb": "L2401531",
-                            "rgsm": "L2401531",
-                            "lane": 1,
-                            "rgcn": "UMCCR",
-                            "rgds": "Library ID: L2401531 / Sequenced on 24 Oct 2024 at UMCCR / Phenotype: tumor / Assay: ctTSO / Type: ctDNA",
-                            "rgdt": "2024-10-24",
-                            "rgpl": "Illumina",
-                            "read1FileUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/primary/241024_A00130_0336_BHW7MVDSXC/20250611c473883f/Samples/Lane_1/L2401531/L2401531_S6_L001_R1_001.fastq.ora",
-                            "read2FileUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/primary/241024_A00130_0336_BHW7MVDSXC/20250611c473883f/Samples/Lane_1/L2401531/L2401531_S6_L001_R2_001.fastq.ora"
-                        }
-                    ]
-                },
-                "engineParameters": {
-                    "projectId": "ea19a3f5-ec7c-4940-a474-c31cd91dbad4",
-                    "pipelineId": "63dc920c-adde-4891-8aae-84a6b9569f37",
-                    "outputUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/analysis/dragen-tso500-ctdna/2025073197468646/",
-                    "logsUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/logs/dragen-tso500-ctdna/2025073197468646/",
-                    "cacheUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/cacheUri/dragen-tso500-ctdna/2025073197468646/"
-                },
-                "tags": {
-                    "libraryId": "L2401531",
-                    "fastqRgidList": [
-                        "CTGAAGCT+TCAGAGCC.1.241024_A00130_0336_BHW7MVDSXC"
-                    ],
-                    "subjectId": "Sera-ctDNA-Comp1pc",
-                    "individualId": "SBJ00595",
-                    "preLaunchCoverageEst": 50.44,
-                    "preLaunchDupFracEst": 0.52,
-                    "preLaunchInsertSizeEst": 182
-                }
-            },
-            None),
-        indent=4
-    ))
