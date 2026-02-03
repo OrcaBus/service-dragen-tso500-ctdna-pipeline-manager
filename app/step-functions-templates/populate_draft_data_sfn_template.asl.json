@@ -6,13 +6,14 @@
       "Type": "Pass",
       "Next": "Validate Draft Data",
       "Assign": {
-        "draftDetail": "{% $states.input %}",
-        "draftLibrariesList": "{% $states.input.libraries %}",
-        "draftPayload": "{% (\n  $states.input.payload ? \n  $states.input.payload : {\n    \"version\": \"${__default_payload_version__}\"\n  }\n) %}",
-        "draftData": "{% $states.input.payload.data ? $states.input.payload.data : {} %}",
-        "draftEngineParameters": "{% $states.input.payload.data.engineParameters ? $states.input.payload.data.engineParameters : {} %}",
-        "draftTags": "{% $states.input.payload.data.tags ? $states.input.payload.data.tags : {} %}",
-        "draftInputs": "{% $states.input.payload.data.inputs ? $states.input.payload.data.inputs : {} %}"
+        "detail": "{% $states.input %}",
+        "librariesList": "{% $states.input.libraries %}",
+        "payload": "{% (\n  $states.input.payload ? \n  $states.input.payload : {\n    \"version\": \"${__default_payload_version__}\"\n  }\n) %}",
+        "data": "{% $states.input.payload.data ? $states.input.payload.data : {} %}",
+        "engineParameters": "{% $states.input.payload.data.engineParameters ? $states.input.payload.data.engineParameters : {} %}",
+        "tags": "{% $states.input.payload.data.tags ? $states.input.payload.data.tags : {} %}",
+        "inputs": "{% $states.input.payload.data.inputs ? $states.input.payload.data.inputs : {} %}",
+        "rgidList": "{% $states.input.libraries ? ( [ \n    [ $states.input.libraries.(readsets).(rgid) ] ~> \n    $filter(function($v){$v != null}) \n] ) %}"
       }
     },
     "Validate Draft Data": {
@@ -20,7 +21,7 @@
       "Resource": "arn:aws:states:::lambda:invoke",
       "Arguments": {
         "FunctionName": "${__validate_draft_payload_lambda_function_arn__}",
-        "Payload": "{% $draftData %}"
+        "Payload": "{% $data %}"
       },
       "Retry": [
         {
@@ -50,46 +51,17 @@
           "Comment": "No need to populate"
         }
       ],
-      "Default": "Do we have matching libraries"
+      "Default": "Get Engine parameters"
     },
     "Do we have matching libraries": {
       "Type": "Choice",
       "Choices": [
         {
-          "Next": "Get Engine parameters",
-          "Condition": "{%\n/* Compare the draft tags to the libraries */\n/* Get the draft tags */\n(\n    [ \n        $draftTags.(libraryId)\n    ]\n)\n=\n/* Get the draft detail libraries */ \n(\n    [\n        $draftLibrariesList.(libraryId)\n    ]\n) %}"
+          "Next": "Get tags",
+          "Condition": "{% /* Compare the draft tags to the libraries */\n/* Get the draft tags */\n(\n    [ \n        $tags.(libraryId)\n    ] ~> $sort\n)\n=\n/* Get the draft detail libraries */ \n(\n    [\n        $librariesList.(libraryId)\n    ] ~> $sort\n) %}"
         }
       ],
       "Default": "Get Primitive Tags from libraries"
-    },
-    "Get Primitive Tags from libraries": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Output": "{% $states.result.Payload %}",
-      "Arguments": {
-        "FunctionName": "${__get_libraries_lambda_function_arn__}",
-        "Payload": {
-          "libraries": "{% $draftLibrariesList %}"
-        }
-      },
-      "Retry": [
-        {
-          "ErrorEquals": [
-            "Lambda.ServiceException",
-            "Lambda.AWSLambdaException",
-            "Lambda.SdkClientException",
-            "Lambda.TooManyRequestsException"
-          ],
-          "IntervalSeconds": 1,
-          "MaxAttempts": 3,
-          "BackoffRate": 2,
-          "JitterStrategy": "FULL"
-        }
-      ],
-      "Assign": {
-        "draftTags": "{% $merge(\n  [\n    $states.result.Payload,\n    $draftTags\n  ]\n) %}"
-      },
-      "Next": "Get Engine parameters"
     },
     "No need to rerun": {
       "Type": "Pass",
@@ -97,7 +69,7 @@
     },
     "Get Engine parameters": {
       "Type": "Parallel",
-      "Next": "Get tags",
+      "Next": "Do we have matching libraries",
       "Branches": [
         {
           "StartAt": "Has Project ID",
@@ -107,7 +79,7 @@
               "Choices": [
                 {
                   "Next": "Use provided project id",
-                  "Condition": "{% $draftEngineParameters.projectId ? true : false %}",
+                  "Condition": "{% $engineParameters.projectId ? true : false %}",
                   "Comment": "Project ID Provided"
                 }
               ],
@@ -117,7 +89,7 @@
               "Type": "Pass",
               "End": true,
               "Output": {
-                "projectId": "{% $draftEngineParameters.projectId %}"
+                "projectId": "{% $engineParameters.projectId %}"
               }
             },
             "Get Default Project Id": {
@@ -141,7 +113,7 @@
               "Choices": [
                 {
                   "Next": "Use provided pipeline id",
-                  "Condition": "{% $draftEngineParameters.pipelineId ? true : false %}",
+                  "Condition": "{% $engineParameters.pipelineId ? true : false %}",
                   "Comment": "Pipeline ID Provided"
                 }
               ],
@@ -151,13 +123,13 @@
               "Type": "Pass",
               "End": true,
               "Output": {
-                "pipelineId": "{% $draftEngineParameters.pipelineId %}"
+                "pipelineId": "{% $engineParameters.pipelineId %}"
               }
             },
             "Get default pipeline id": {
               "Type": "Task",
               "Arguments": {
-                "Name": "{% '${__workflow_id_to_pipeline_id_ssm_parameter_path_prefix__}/' & $draftDetail.workflow.version %}"
+                "Name": "{% '${__workflow_id_to_pipeline_id_ssm_parameter_path_prefix__}/' & $detail.workflow.version %}"
               },
               "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
               "End": true,
@@ -175,7 +147,7 @@
               "Choices": [
                 {
                   "Next": "Use provided output uri",
-                  "Condition": "{% $draftEngineParameters.outputUri ? true : false %}",
+                  "Condition": "{% $engineParameters.outputUri ? true : false %}",
                   "Comment": "Output URI Provided"
                 }
               ],
@@ -185,7 +157,7 @@
               "Type": "Pass",
               "End": true,
               "Output": {
-                "outputUri": "{% $draftEngineParameters.outputUri %}"
+                "outputUri": "{% $engineParameters.outputUri %}"
               }
             },
             "Get default output uri prefix": {
@@ -196,7 +168,7 @@
               "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
               "End": true,
               "Output": {
-                "outputUri": "{% $states.result.Parameter.Value & $draftDetail.portalRunId & '/' %}"
+                "outputUri": "{% $states.result.Parameter.Value & $detail.portalRunId & '/' %}"
               }
             }
           }
@@ -209,7 +181,7 @@
               "Choices": [
                 {
                   "Next": "Use provided logs uri",
-                  "Condition": "{% $draftEngineParameters.logsUri ? true : false %}",
+                  "Condition": "{% $engineParameters.logsUri ? true : false %}",
                   "Comment": "Logs URI Provided"
                 }
               ],
@@ -219,7 +191,7 @@
               "Type": "Pass",
               "End": true,
               "Output": {
-                "logsUri": "{% $draftEngineParameters.logsUri %}"
+                "logsUri": "{% $engineParameters.logsUri %}"
               }
             },
             "Get default logs uri prefix": {
@@ -230,7 +202,7 @@
               "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
               "End": true,
               "Output": {
-                "logsUri": "{% $states.result.Parameter.Value & $draftDetail.portalRunId & '/' %}"
+                "logsUri": "{% $states.result.Parameter.Value & $detail.portalRunId & '/' %}"
               }
             }
           }
@@ -243,7 +215,7 @@
               "Choices": [
                 {
                   "Next": "Use provided cache uri",
-                  "Condition": "{% $draftEngineParameters.cacheUri ? true : false %}",
+                  "Condition": "{% $engineParameters.cacheUri ? true : false %}",
                   "Comment": "Cache URI Provided"
                 }
               ],
@@ -253,7 +225,7 @@
               "Type": "Pass",
               "End": true,
               "Output": {
-                "cacheUri": "{% $draftEngineParameters.cacheUri %}"
+                "cacheUri": "{% $engineParameters.cacheUri %}"
               }
             },
             "Get default cache uri prefix": {
@@ -264,7 +236,7 @@
               "Resource": "arn:aws:states:::aws-sdk:ssm:getParameter",
               "End": true,
               "Output": {
-                "cacheUri": "{% $states.result.Parameter.Value & $draftDetail.portalRunId & '/' %}"
+                "cacheUri": "{% $states.result.Parameter.Value & $detail.portalRunId & '/' %}"
               }
             }
           }
@@ -273,6 +245,35 @@
       "Assign": {
         "engineParameters": "{% /* https://try.jsonata.org/6nUH8BUBr */\n$merge($states.result) %}"
       }
+    },
+    "Get Primitive Tags from libraries": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "${__get_libraries_lambda_function_arn__}",
+        "Payload": {
+          "libraries": "{% $librariesList %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Assign": {
+        "tags": "{% $merge(\n  [\n    $states.result.Payload,\n    $tags\n  ]\n) %}"
+      },
+      "Next": "Get tags"
     },
     "Get tags": {
       "Type": "Parallel",
@@ -285,25 +286,25 @@
               "Choices": [
                 {
                   "Next": "Set fastq rgid list",
-                  "Condition": "{% $draftTags.fastqRgidList ? true : false %}"
+                  "Condition": "{% $tags.fastqRgidList ? true : false %}"
                 }
               ],
-              "Default": "Get fastq list rgids from normal libraries"
+              "Default": "Get fastq list rgids from libraries"
             },
             "Set fastq rgid list": {
               "Type": "Pass",
               "End": true,
               "Output": {
-                "fastqRgidList": "{% $draftTags.fastqRgidList %}"
+                "fastqRgidList": "{% $tags.fastqRgidList %}"
               }
             },
-            "Get fastq list rgids from normal libraries": {
+            "Get fastq list rgids from libraries": {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Arguments": {
                 "FunctionName": "${__get_fastq_list_rgids_from_library_lambda_function_arn__}",
                 "Payload": {
-                  "libraryId": "{% $draftTags.libraryId %}"
+                  "libraryId": "{% $tags.libraryId %}"
                 }
               },
               "Retry": [
@@ -328,15 +329,34 @@
           }
         },
         {
-          "StartAt": "Get subject and individual id tags",
+          "StartAt": "Has metadata tags",
           "States": {
+            "Has metadata tags": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Next": "Set metadata tags",
+                  "Condition": "{% ( $tags.subjectId ? true : false ) and ( $tags.individualId ? true : false ) %}",
+                  "Comment": "Metadata tags exist"
+                }
+              ],
+              "Default": "Get subject and individual id tags"
+            },
+            "Set metadata tags": {
+              "Type": "Pass",
+              "End": true,
+              "Output": {
+                "subjectId": "{% $tags.subjectId %}",
+                "individualId": "{% $tags.individualId %}"
+              }
+            },
             "Get subject and individual id tags": {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Arguments": {
                 "FunctionName": "${__get_metadata_tags_lambda_function_arn__}",
                 "Payload": {
-                  "libraryId": "{% $draftTags.libraryId %}"
+                  "libraryId": "{% $tags.libraryId %}"
                 }
               },
               "Retry": [
@@ -362,18 +382,47 @@
           }
         }
       ],
-      "Next": "Get libraries with readsets",
+      "Next": "Tags Or Engine Parameters Have Changed",
       "Assign": {
-        "tags": "{% /* List to merge together */\n[\n    /* Start with the draft tags */\n    $draftTags,\n    /* Merge the results list together */\n    $merge($states.result)\n] \n/* Then merge these initial tags with states.result  */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
+        "tags": "{% /* List to merge together */\n[\n    /* Start with the draft tags */\n    $tags,\n    /* Merge the results list together */\n    $merge($states.result)\n] \n/* Then merge these initial tags with states.result  */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
       }
+    },
+    "Tags Or Engine Parameters Have Changed": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Next": "Generate WRU event",
+          "Condition": "{% ( ( $data.tags ? $data.tags : {} ) = $tags ~> $not ) or\n( ( $data.engineParameters ? $data.engineParameters : {} ) = $engineParameters ~> $not ) %}",
+          "Comment": "Tags or engine parameters have changed"
+        }
+      ],
+      "Default": "Get libraries with readsets"
     },
     "Get libraries with readsets": {
       "Type": "Parallel",
       "Next": "Get Inputs",
       "Branches": [
         {
-          "StartAt": "For each rgid (readsets)",
+          "StartAt": "Library has readsets",
           "States": {
+            "Library has readsets": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Comment": "Library has readsets",
+                  "Next": "Keep library object as is",
+                  "Condition": "{% /* Get readsets for tag */\n( \n  $librariesList ~>\n  $single(function($libraryIter){\n    $libraryIter.libraryId = $tags.libraryId\n  }) ~>\n  $lookup(\"readsets\")\n) ? true : false %}"
+                }
+              ],
+              "Default": "For each rgid (readsets)"
+            },
+            "Keep library object as is": {
+              "Type": "Pass",
+              "End": true,
+              "Output": {
+                "library": "{% $librariesList ~>\n$single(function($libraryIter){\n  $libraryIter.libraryId = $tags.libraryId\n}) %}"
+              }
+            },
             "For each rgid (readsets)": {
               "Type": "Map",
               "Items": "{% $tags.fastqRgidList ? $tags.fastqRgidList : [] %}",
@@ -416,7 +465,7 @@
               },
               "End": true,
               "Output": {
-                "library": "{% [\n  /* Draft libraries list */\n  $draftLibrariesList ~>\n  $single(function($libraryIter){\n    $libraryIter.libraryId = $tags.libraryId\n  }),\n  {\n    \"readsets\": $states.result\n  }\n] ~>\n$merge %}"
+                "library": "{% [\n  /* Draft libraries list */\n  $librariesList ~>\n  $single(function($libraryIter){\n    $libraryIter.libraryId = $tags.libraryId\n  }),\n  {\n    \"readsets\": $states.result\n  }\n] ~>\n$merge %}"
               }
             }
           }
@@ -433,7 +482,7 @@
         }
       ],
       "Assign": {
-        "libraries": "{% [ $states.result.(library) ] %}"
+        "librariesList": "{% [ $states.result.(library) ] %}"
       }
     },
     "Get Inputs": {
@@ -497,15 +546,53 @@
               "Output": {
                 "fastqIdList": "{% $states.input.fastqIdList %}"
               },
+              "Next": "Get prefix from project id",
+              "HeartbeatSeconds": 3600,
+              "Retry": [
+                {
+                  "ErrorEquals": ["States.HeartbeatTimeout"],
+                  "BackoffRate": 2,
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3
+                }
+              ]
+            },
+            "Get prefix from project id": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Output": {
+                "s3Uri": "{% $states.result.Payload.s3Uri %}"
+              },
+              "Arguments": {
+                "FunctionName": "${__get_project_base_uri_from_project_id_lambda_function_arn__}",
+                "Payload": {
+                  "projectId": "{% $engineParameters.projectId %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
               "Next": "Get fastq list rows from fastq list"
             },
             "Get fastq list rows from fastq list": {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Arguments": {
-                "FunctionName": "${__get_fastq_list_rows_from_fastq_id_list_lambda_function_arn__}",
+                "FunctionName": "${__get_fastq_list_rows_from_fastq_rgid_list_lambda_function_arn__}",
                 "Payload": {
-                  "fastqIdList": "{% $states.input.fastqIdList %}"
+                  "fastqRgidList": "{% $tags.fastqRgidList %}",
+                  "s3UriPrefix": "{% $states.input.s3Uri %}"
                 }
               },
               "Retry": [
@@ -542,7 +629,7 @@
       ],
       "Next": "Add qc tags",
       "Assign": {
-        "inputs": "{% /* https://try.jsonata.org/-D6C7WZKF */\n/* List to merge together */\n[\n    /* Start with the draft inputs */\n    $draftInputs,\n    /* Merge the results list together */\n    $merge($states.result),\n    /* Add in the sampleName from the library id variable */\n    {\n        \"sampleName\": $draftTags.libraryId\n    }\n]\n/* Then merge these initial inputs with states.result */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
+        "inputs": "{% /* https://try.jsonata.org/-D6C7WZKF */\n/* List to merge together */\n[\n    /* Start with the draft inputs */\n    $inputs,\n    /* Merge the results list together */\n    $merge($states.result),\n    /* Add in the sampleName from the library id variable */\n    {\n        \"sampleName\": $tags.libraryId\n    }\n]\n/* Then merge these initial inputs with states.result */\n~> $merge\n/* Remove any keys with values */\n~> $sift(function($v, $k){$v != null}) %}"
       }
     },
     "Add qc tags": {
@@ -606,12 +693,12 @@
       "Arguments": {
         "FunctionName": "${__generate_wru_event_object_with_merged_data_lambda_function_arn__}",
         "Payload": {
-          "portalRunId": "{% $draftDetail.portalRunId %}",
-          "libraries": "{% $libraries %}",
+          "portalRunId": "{% $detail.portalRunId %}",
+          "libraries": "{% $librariesList %}",
           "payload": {
-            "version": "{% $draftPayload.version ? $draftPayload.version : '${__default_payload_version__}' %}",
+            "version": "{% $payload.version ? $payload.version : '${__default_payload_version__}' %}",
             "data": {
-              "inputs": "{% $inputs %}",
+              "inputs": "{% $inputs ? $inputs : null %}",
               "tags": "{% $tags %}",
               "engineParameters": "{% $engineParameters %}"
             }
@@ -634,7 +721,7 @@
       ],
       "Next": "Compare Payload",
       "Assign": {
-        "draftWorkflowRunUpdate": "{% $states.result.Payload.workflowRunUpdate %}"
+        "workflowRunUpdate": "{% $states.result.Payload.workflowRunUpdate %}"
       }
     },
     "Compare Payload": {
@@ -644,8 +731,8 @@
       "Arguments": {
         "FunctionName": "${__compare_payload_lambda_function_arn__}",
         "Payload": {
-          "oldPayload": "{% $draftPayload ~> \n| $ | {}, [\"orcabusId\", \"refId\"] | %}",
-          "newPayload": "{% $draftWorkflowRunUpdate.payload %}"
+          "oldPayload": "{% $payload ~> \n| $ | {}, [\"orcabusId\", \"refId\"] | %}",
+          "newPayload": "{% $workflowRunUpdate.payload %}"
         }
       },
       "Retry": [
@@ -673,7 +760,7 @@
           "Comment": "Payload has changed"
         }
       ],
-      "Default": "Pass (1)"
+      "Default": "No need to rerun"
     },
     "Push DRAFT Event": {
       "Type": "Task",
@@ -681,17 +768,13 @@
       "Arguments": {
         "Entries": [
           {
-            "Detail": "{% $merge([\n  $draftDetail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $draftPayload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n])\n %}",
+            "Detail": "{% $merge([\n  $detail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $payload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n])\n %}",
             "DetailType": "${__workflow_run_update_event_detail_type__}",
             "EventBusName": "${__event_bus_name__}",
             "Source": "${__stack_source__}"
           }
         ]
       },
-      "End": true
-    },
-    "Pass (1)": {
-      "Type": "Pass",
       "End": true
     }
   },

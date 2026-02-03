@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
+"""
+Download the draft schema from AWS schema registry, validate it against the current schema, and return the results.
+
+If event.addCommentOnError is set to True, add a comment to the workflow run on validation failure.
+"""
+
 # Imports
-import json
 import boto3
 import typing
 import jsonschema
-from os import environ
 from typing import Dict
 
 from jsonschema import ValidationError

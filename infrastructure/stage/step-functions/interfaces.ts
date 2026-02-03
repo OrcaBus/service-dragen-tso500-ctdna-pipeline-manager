@@ -70,7 +70,8 @@ export const stepFunctionToLambdasMap: Record<StateMachineName, LambdaName[]> = 
     'getFastqListRgidsFromLibrary',
     'getMetadataTags',
     'getFastqIdListFromFastqRgidList',
-    'getFastqListRowsFromFastqIdList',
+    'getFastqListRowsFromFastqRgidList',
+    'getProjectBaseUriFromProjectId',
     'getLibraries',
     'getQcSummaryStatsFromRgidList',
     'checkNtsmInternalPassing',
@@ -78,7 +79,7 @@ export const stepFunctionToLambdasMap: Record<StateMachineName, LambdaName[]> = 
     'comparePayload',
     'generateWruEventObjectWithMergedData',
   ],
-  validateDraftDataAndPutReadyEvent: ['validateDraftPayload'],
+  validateDraftDataAndPutReadyEvent: ['validateDraftPayload', 'postSchemaValidation'],
   readyEventToIcav2WesRequestEvent: [
     'getFastqIdListFromFastqRgidList',
     'generateMinimalSamplesheetFromFastqIdList',

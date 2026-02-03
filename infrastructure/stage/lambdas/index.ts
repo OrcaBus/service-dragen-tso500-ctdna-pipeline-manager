@@ -1,6 +1,12 @@
 import { LambdaInput, lambdaNamesList, LambdaObject, lambdaRequirementsMap } from './interfaces';
 import { PythonUvFunction } from '@orcabus/platform-cdk-constructs/lambda';
-import { LAMBDA_DIR, SCHEMA_REGISTRY_NAME, SSM_SCHEMA_ROOT } from '../constants';
+import {
+  LAMBDA_DIR,
+  SCHEMA_REGISTRY_NAME,
+  SSM_SCHEMA_ROOT,
+  TEST_DATA_BUCKET_NAME,
+  WORKFLOW_NAME,
+} from '../constants';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Duration } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
@@ -28,7 +34,6 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
     includeIcav2Layer: lambdaRequirements.needsIcav2ToolsLayer,
   });
 
-  // AwsSolutions-L1 - We'll migrate to PYTHON_3_13 ASAP, soz
   // AwsSolutions-IAM4 - We need to add this for the lambda to work
   NagSuppressions.addResourceSuppressions(
     lambdaFunction,
@@ -85,6 +90,14 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
   }
 
   /*
+    External bucket info, required by the post schema validation lambda to confirm inputs
+    are legitimate
+  */
+  if (lambdaRequirements.needsExternalBucketInfo) {
+    lambdaFunction.addEnvironment('TEST_DATA_BUCKET_NAME', TEST_DATA_BUCKET_NAME);
+  }
+
+  /*
     Special if the lambdaName is 'validateDraftCompleteSchema', we need to add in the ssm parameters
     to the REGISTRY_NAME and SCHEMA_NAME
    */
@@ -95,6 +108,11 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
       'SSM_SCHEMA_NAME',
       path.join(SSM_SCHEMA_ROOT, camelCaseToKebabCase(draftSchemaName), 'latest')
     );
+  }
+
+  /* Post schema validation needs the workflow name for commentary */
+  if (props.lambdaName === 'postSchemaValidation') {
+    lambdaFunction.addEnvironment('WORKFLOW_NAME', WORKFLOW_NAME);
   }
 
   /* Return the function */

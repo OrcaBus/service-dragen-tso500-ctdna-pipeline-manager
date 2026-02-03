@@ -1,44 +1,56 @@
 import { PythonUvFunction } from '@orcabus/platform-cdk-constructs/lambda';
 
 export type LambdaName =
-  | 'checkNtsmInternalPassing'
-  | 'checkSampleHasSucceeded'
-  | 'comparePayload'
-  | 'convertIcav2WesToWrscEvent'
-  | 'deleteCacheUri'
-  | 'findVcfFiles'
-  | 'generateWruEventObjectWithMergedData'
-  | 'generateMinimalSamplesheetFromFastqIdList'
-  | 'getFastqIdListFromFastqRgidList'
-  | 'getFastqListRgidsFromLibrary'
-  | 'getFastqListRowsFromFastqIdList'
-  | 'getInstrumentRunIdFromFastqId'
+  // Pre-Draft Complete lambda functions
   | 'getLibraries'
   | 'getMetadataTags'
+  | 'getProjectBaseUriFromProjectId'
+  | 'getFastqIdListFromFastqRgidList'
+  | 'getFastqListRgidsFromLibrary'
+  | 'getFastqListRowsFromFastqRgidList'
+  | 'checkNtsmInternalPassing'
+  | 'comparePayload'
+  | 'generateWruEventObjectWithMergedData'
   | 'getWorkflowRunObject'
   | 'getQcSummaryStatsFromRgidList'
+  // Validation functions
+  | 'validateDraftPayload'
+  | 'postSchemaValidation'
+  // Ready-to-ICAv2 WES Request lambda functions
+  | 'getInstrumentRunIdFromFastqId'
+  | 'generateMinimalSamplesheetFromFastqIdList'
   | 'uploadSamplesheetToCacheDirectory'
-  | 'validateDraftPayload';
+  // Post submission
+  | 'convertIcav2WesToWrscEvent'
+  | 'checkSampleHasSucceeded'
+  | 'deleteCacheUri'
+  | 'findVcfFiles';
 
 export const lambdaNamesList: LambdaName[] = [
-  'checkNtsmInternalPassing',
-  'checkSampleHasSucceeded',
-  'comparePayload',
-  'convertIcav2WesToWrscEvent',
-  'deleteCacheUri',
-  'findVcfFiles',
-  'generateWruEventObjectWithMergedData',
-  'generateMinimalSamplesheetFromFastqIdList',
-  'getFastqIdListFromFastqRgidList',
-  'getFastqListRgidsFromLibrary',
-  'getFastqListRowsFromFastqIdList',
-  'getInstrumentRunIdFromFastqId',
+  // Pre-Draft Complete lambda functions
   'getLibraries',
   'getMetadataTags',
+  'getProjectBaseUriFromProjectId',
+  'getFastqIdListFromFastqRgidList',
+  'getFastqListRgidsFromLibrary',
+  'getFastqListRowsFromFastqRgidList',
+  'checkNtsmInternalPassing',
+  'comparePayload',
+  'generateWruEventObjectWithMergedData',
   'getWorkflowRunObject',
   'getQcSummaryStatsFromRgidList',
-  'uploadSamplesheetToCacheDirectory',
+  // Validation functions
   'validateDraftPayload',
+  'postSchemaValidation',
+  // Ready-to-ICAv2 WES Request lambda functions
+  'getInstrumentRunIdFromFastqId',
+  'generateMinimalSamplesheetFromFastqIdList',
+  'uploadSamplesheetToCacheDirectory',
+  // Post submission
+  'convertIcav2WesToWrscEvent',
+  'checkSampleHasSucceeded',
+  'deleteCacheUri',
+  'findVcfFiles',
 ];
 
 export interface LambdaRequirements {
@@ -46,31 +58,20 @@ export interface LambdaRequirements {
   needsIcav2ToolsLayer?: boolean;
   needsSchemaRegistryAccess?: boolean;
   needsSsmParametersAccess?: boolean;
+  needsExternalBucketInfo?: boolean;
 }
 
 // Lambda requirements mapping
 export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
-  checkNtsmInternalPassing: {
+  // Pre-Draft Complete lambda functions
+  getLibraries: {
     needsOrcabusApiToolsLayer: true,
   },
-  checkSampleHasSucceeded: {
-    needsIcav2ToolsLayer: true,
-  },
-  comparePayload: {},
-  convertIcav2WesToWrscEvent: {
+  getMetadataTags: {
     needsOrcabusApiToolsLayer: true,
   },
-  deleteCacheUri: {
-    needsIcav2ToolsLayer: true,
-  },
-  findVcfFiles: {
-    needsIcav2ToolsLayer: true,
-  },
-  generateWruEventObjectWithMergedData: {
+  getProjectBaseUriFromProjectId: {
     needsOrcabusApiToolsLayer: true,
-  },
-  generateMinimalSamplesheetFromFastqIdList: {
-    needsIcav2ToolsLayer: true,
   },
   getFastqIdListFromFastqRgidList: {
     needsOrcabusApiToolsLayer: true,
@@ -78,31 +79,55 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
   getFastqListRgidsFromLibrary: {
     needsOrcabusApiToolsLayer: true,
   },
-  getFastqListRowsFromFastqIdList: {
+  getFastqListRowsFromFastqRgidList: {
+    needsOrcabusApiToolsLayer: true,
+    needsExternalBucketInfo: true,
+  },
+  checkNtsmInternalPassing: {
     needsOrcabusApiToolsLayer: true,
   },
-  getInstrumentRunIdFromFastqId: {
-    needsOrcabusApiToolsLayer: true,
-  },
-  getLibraries: {
-    needsOrcabusApiToolsLayer: true,
-  },
-  getMetadataTags: {
-    needsOrcabusApiToolsLayer: true,
-  },
-  getQcSummaryStatsFromRgidList: {
+  comparePayload: {},
+  generateWruEventObjectWithMergedData: {
     needsOrcabusApiToolsLayer: true,
   },
   getWorkflowRunObject: {
     needsOrcabusApiToolsLayer: true,
   },
-  uploadSamplesheetToCacheDirectory: {
-    needsIcav2ToolsLayer: true,
+  getQcSummaryStatsFromRgidList: {
+    needsOrcabusApiToolsLayer: true,
   },
-  // Pre-ready-complete lambda functions
+  // Validation functions
   validateDraftPayload: {
     needsSchemaRegistryAccess: true,
     needsSsmParametersAccess: true,
+  },
+  postSchemaValidation: {
+    needsIcav2ToolsLayer: true,
+    needsOrcabusApiToolsLayer: true,
+    needsExternalBucketInfo: true,
+  },
+  // Ready-to-ICAv2 WES Request lambda functions
+  getInstrumentRunIdFromFastqId: {
+    needsOrcabusApiToolsLayer: true,
+  },
+  generateMinimalSamplesheetFromFastqIdList: {
+    needsIcav2ToolsLayer: true,
+  },
+  uploadSamplesheetToCacheDirectory: {
+    needsIcav2ToolsLayer: true,
+  },
+  // Post submission
+  convertIcav2WesToWrscEvent: {
+    needsOrcabusApiToolsLayer: true,
+  },
+  checkSampleHasSucceeded: {
+    needsIcav2ToolsLayer: true,
+  },
+  deleteCacheUri: {
+    needsIcav2ToolsLayer: true,
+  },
+  findVcfFiles: {
+    needsIcav2ToolsLayer: true,
   },
 };
 

@@ -2,6 +2,7 @@
 import path from 'path';
 import { WorkflowVersionType } from './interfaces';
 import { DATA_SCHEMA_REGISTRY_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
+import { TEST_DATA_BUCKET } from '@orcabus/platform-cdk-constructs/shared-config/s3';
 
 export const APP_ROOT = path.join(__dirname, '../../app');
 export const LAMBDA_DIR = path.join(APP_ROOT, 'lambdas');
@@ -88,3 +89,6 @@ export const READY_STATUS = 'READY';
 /* Schema constants */
 export const SCHEMA_REGISTRY_NAME = DATA_SCHEMA_REGISTRY_NAME;
 export const SSM_SCHEMA_ROOT = path.join(SSM_PARAMETER_PATH_PREFIX, 'schemas');
+
+/* Bucket constants */
+export const TEST_DATA_BUCKET_NAME = TEST_DATA_BUCKET;
