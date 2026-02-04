@@ -3,26 +3,32 @@ Service Dragen TSO500 ctDNA Pipeline Manager
 
 - [Description](#description)
   - [Summary](#summary)
-  - [Events Overview](#events-overview)
+  - [Ready Event Creation](#ready-event-creation)
+  - [Ready to ICAv2 WES Submitted Event Creation](#ready-to-icav2-wes-submitted-event-creation)
   - [Consumed Events](#consumed-events)
   - [Published Events](#published-events)
-  - [Draft Event Example](#draft-event-example)
-  - [Make your own minimal draft event with bash + jq (dev)](#make-your-own-minimal-draft-event-with-bash--jq-dev)
-  - [Make your own minimal draft event with bash + jq (prod)](#make-your-own-minimal-draft-event-with-bash--jq-prod)
+  - [Draft Event](#draft-event)
+    - [Draft Event Submission](#draft-event-submission)
+    - [Draft Data Schema Validation](#draft-data-schema-validation)
+  - [Release Management](#release-management)
+    - [Upstream Pipelines](#upstream-pipelines)
+    - [Downstream Pipelines](#downstream-pipelines)
+    - [Primary Services](#primary-services)
 - [Infrastructure \& Deployment](#infrastructure--deployment)
   - [Stateful Stack](#stateful-stack)
-  - [Stateless](#stateless)
-    - [StepFunctions](#stepfunctions)
-  - [CDK Commands :construction:](#cdk-commands-construction)
-  - [Stacks :construction:](#stacks-construction)
-- [Development :construction:](#development-construction)
+  - [Stateless Stack](#stateless-stack)
+  - [CDK Commands](#cdk-commands)
+  - [Stacks](#stacks)
+    - [Stateful Stack](#stateful-stack-1)
+    - [Stateless Stack](#stateless-stack-1)
+- [Development](#development)
   - [Project Structure](#project-structure)
   - [Setup](#setup)
     - [Requirements](#requirements)
     - [Install Dependencies](#install-dependencies)
-    - [First Steps](#first-steps)
+    - [Update Dependencies](#update-dependencies)
   - [Conventions](#conventions)
-  - [Linting \& Formatting](#linting--formatting)
+    - [Linting \& Formatting](#linting--formatting)
   - [Testing](#testing)
 - [Glossary \& References](#glossary--references)
 
@@ -32,502 +38,138 @@ Description
 
 ### Summary
 
-This is the Dragen TSO500 ctDNA Pipeline Management service, responsible for shuffling inputs as required,
-to fit the pipeline requirements, and to manage the state of the pipeline execution.
+This is the Dragen TSO500 ctDNA Pipeline Management service, responsible for managing executions of
+[Illumina's TSO500 ctDNA nextflow pipeline](https://help.connected.illumina.com/tso500/dragen-tso-500-ctdna-guides/dragen-tso-500-ctdna-v2.6).
 
-The Illumina pipeline itself runs on ICAv2 through the nextflow engine.
+The Illumina pipeline itself runs on ICA through the nextflow engine.
 
-### Events Overview
+The orchestration logic is per the
+standard [ICAv2-centric Pipeline Architecture](https://github.com/OrcaBus/wiki/blob/main/orcabus/platform/pipelines.md#pipeline-orchestration-general-logic)
 
-We listen to READY WRSC events were the workflow name is equal to 'dragen-tso500-ctdna-pipeline'.
+### Ready Event Creation
 
-We parse this to the ICAv2 WES service to generate an ICAv2 WES workflow request.
+![events-overview](/docs/drawio-exports/draft-to-ready.drawio.svg)
 
-We then parse ICAv2 Analysis State Change events to update the state of the workflow in our service.
+### Ready to ICAv2 WES Submitted Event Creation
 
-Because the Illumina pipeline is designed to run from BCLs not Fastqs, we need to structure the inputs as if they have
-just been demultiplexed. This means generating a SampleSheet inside an instrument run directory, and then adding fastq files to the same directory.
-The pipeline does not support ORA compressed fastqs, so we also need to decompress them first into this directory.
-
-![events-overview](docs/drawio-exports/dragen-tso500-ctdna.drawio.svg)
+![ready-to-icav2-submitted](/docs/drawio-exports/ready-to-icav2-wes-submitted.drawio.svg)
 
 ### Consumed Events
 
-| Name / DetailType             | Source                    | Schema Link     | Description                           |
-|-------------------------------|---------------------------|-----------------|---------------------------------------|
-| `WorkflowRunStateChange`      | `orcabus.workflowmanager` | <schema link>   | DRAFT state change                    |
-| `WorkflowRunStateChange`      | `orcabus.workflowmanager` | <schema link>   | READY state change                    |
-| `Icav2WesAnalysisStateChange` | `orcabus.icav2wes`        | <schema link>   | ICAv2 WES Analysis State Change event |
+| Name / DetailType             | Source                    | Schema Link                                                                                                                                | Description                                                      |
+|-------------------------------|---------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------|
+| `WorkflowRunStateChange`      | `orcabus.workflowmanager` | [WorkflowRunStateChange](https://github.com/OrcaBus/wiki/tree/main/orcabus-platform#workflowrunstatechange)                                | Source of updates on WorkflowRuns (expected pipeline executions) |
+| `Icav2WesAnalysisStateChange` | `orcabus.icav2wes`        | [Icav2WesAnalysisStateChange](https://github.com/OrcaBus/service-icav2-wes-manager/blob/main/app/event-schemas/analysis-state-change.json) | ICAv2 WES Analysis State Change event                            |
 
 ### Published Events
 
-| Name / DetailType        | Source                      | Schema Link     | Description                     |
-|--------------------------|-----------------------------|-----------------|---------------------------------|
-| `WorkflowRunStateChange` | `orcabus.dragentso500ctdna` | <schema link>   | Workflow Run State Change event |
+| Name / DetailType   | Source                      | Schema Link                                                                                                 | Description                                 |
+|---------------------|-----------------------------|-------------------------------------------------------------------------------------------------------------|---------------------------------------------|
+| `WorkflowRunUpdate` | `orcabus.dragentso500ctdna` | [WorkflowRunUpdate](https://github.com/OrcaBus/wiki/blob/main/orcabus/platform/events.md#workflowrunupdate) | Reporting any updates to the pipeline state |
 
+### Draft Event
 
-### Draft Event Example
+A workflow run must be placed into a DRAFT state before it can be started.
 
-**Full Draft Example:**
+This is to ensure that only valid workflow runs are started, and that all required data is present.
 
-<details>
+This service is responsible for both populating and validating draft workflow runs.
 
-<summary>Click to expand</summary>
+A draft event may even be submitted without a payload.
 
-```json5
-{
-  "EventBusName": "OrcaBusMain",
-  "Source": "orcabus.manual",
-  "DetailType": "WorkflowRunStateChange",
-  "Detail": {
-    // status - Required - and must be set to DRAFT
-    "status": "DRAFT",
-    // timestamp - Required - set in UTC / ZULU time
-    "timestamp": "2025-06-20T04:39:31Z",
-    // workflowName - Required - Must be set to dragen-tso500-ctdna
-    "workflowName": "dragen-tso500-ctdna",
-    // workflowVersion - Required - Must be set to 2.6.1
-    "workflowVersion": "2.6.1",
-    // workflowRunName - Required - Nomenclature is umccr--automated--dragen-tso500-ctdna--<workflowVersion>--<portalRunId>
-    "workflowRunName": "umccr--automated--dragen-tso500-ctdna--2-6-1--20250620abcd6789",
-    // portalRunId - Required - Must be set to a unique identifier for the run in the format YYYYMMDD<8-hex-digit-unique-id>
-    "portalRunId": "20250620abcd6789",  // pragma: allowlist secret
-    // linkedLibraries - Required - List of linked libraries, in the format
-    // 'libraryId': '<libraryId>', 'orcabusId': '<orcabusId>'
-    "linkedLibraries": [
-      {
-        "libraryId": "L2301197",
-        "orcabusId": "lib.01JBMVHM2D5GCC7FTC20K4FDFK"
-      }
-    ],
-    // payload - The payload for the workflow run, containing all the necessary data
-    "payload": {
-      // version - The version of the payload schema used by this service
-      // Not currently used by the service, but may be used in future
-      "version": "2025.06.20",
-      // data - The data for the workflow run, containing inputs, engine parameters, and tags
-      "data": {
-        // all inputs for the dragen-tso-ctdna pipeline
-        "inputs": {
-          // Input options are very limited for this pipeline, as it is designed to run from BCLs
-          // We generate the samplesheet internally, and expect the rgid to be in <index>.<lane>.<instrument_run_id> format
-          // To ensure that we properly generate the samplesheet
-          // Currently we only support fastq list rows that are on the same instrument run id
-          "fastqListRows": [
-            {
-              "rgid": "AAAAAAA+GGGGGGGG.4.240902_A01030_0366_ABCD1234567",
-              "rglb": "L2301197",
-              "rgsm": "L2301197",
-              "lane": 1,
-              "read1FileUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/test_data/ora-testing/input_data/MDX230428_L2301197_S7_L004_R1_001.fastq.ora",
-              "read2FileUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/test_data/ora-testing/input_data/MDX230428_L2301197_S7_L004_R2_001.fastq.ora"
-            }
-          ],
-          // The library id
-          "sampleName": "L2301197"
-        },
-        // engineParameters - Parameters for the pipeline engine
-        "engineParameters": {
-          // Not required, defaults to the default pipeline for the workflowVersion specified
-          "pipelineId": "5009335a-8425-48a8-83c4-17c54607b44a",
-          // Not required, defaults to the default project id
-          "projectId": "ea19a3f5-ec7c-4940-a474-c31cd91dbad4",
-          // Not required, defaults to the default workflow output prefix
-          "outputUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/analysis/dragen-tso500-ctdna/20250620abcd6789/",
-          // Not required, defaults to the default workflow logs prefix
-          "logsUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/logs/dragen-tso500-ctdna/20250620abcd6789/",
-          // Not required, defaults to the default workflow cache prefix
-          "cacheUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/cache/dragen-tso500-ctdna/20250620abcd6789/",
-        },
-        "tags": {
-          // libraryId, required, the germline library ID for the workflow run
-          "libraryId": "L2301197",
-          // fastqRgidList, not required, a list of fastq RGIDs for the workflow run
-          // If not provided, will be populated from the fastq manager for the current fastq set for the library id provided
-          "fastqRgidList": [
-            "AAAAAAA+GGGGGGGG.4.240902_A01030_0366_ABCD1234567"
-          ],
-          // subjectId, not required, the subject ID for the workflow run
-          // If not provided, will be populated by the metadata manager from the libraryId provided
-          "subjectId": "ExternalSubjectId",
-          // individualId - not required, the individual ID for the workflow run
-          "individualId": "InternalSubjectId",
-        }
-      }
-    }
-  }
-}
-```
+#### Draft Event Submission
 
-</details>
+To submit a Dragen TSO500 ctDNA DRAFT event, please follow the [PM.DTC.1 SOP](/docs/operation/SOP/README.md#pm.dtc.1) in our SOPs documentation.
 
-**Minimal Draft Example:**
+#### Draft Data Schema Validation
 
-```json5
-{
-  "EventBusName": "OrcaBusMain",
-  "Source": "orcabus.manual",
-  "DetailType": "WorkflowRunStateChange",
-  "Detail": {
-    // status - Required - and must be set to DRAFT
-    "status": "DRAFT",
-    // timestamp - Required - set in UTC / ZULU time
-    "timestamp": "2025-06-20T04:39:31Z",
-    // workflowName - Required - Must be set to dragen-tso500-ctdna
-    "workflowName": "dragen-tso500-ctdna",
-    // workflowVersion - Required - Must be set to 2.6.1
-    "workflowVersion": "2.6.1",
-    // workflowRunName - Required - Nomenclature is umccr--automated--dragen-tso500-ctdna--<workflowVersion>--<portalRunId>
-    "workflowRunName": "umccr--automated--dragen-tso500-ctdna--2-6-1--20250620abcd6789",
-    // portalRunId - Required - Must be set to a unique identifier for the run in the format YYYYMMDD<8-hex-digit-unique-id>
-    "portalRunId": "20250620abcd6789",  // pragma: allowlist secret
-    // linkedLibraries - Required - List of linked libraries, in the format
-    // 'libraryId': '<libraryId>', 'orcabusId': '<orcabusId>'
-    "linkedLibraries": [
-      {
-        "libraryId": "L2301197",
-        "orcabusId": "lib.01JBMVHM2D5GCC7FTC20K4FDFK"
-      }
-    ]
-  }
-}
-```
+We have generated JSON schemas for the complete DRAFT WRU event **data** which you can find in the [`app/schemas/` directory](/app/schemas).
 
-### Make your own minimal draft event with bash + jq (dev)
+You can interactively check if your DRAFT event data payload matches the schema using the following links:
 
-```bash
-# Globals
-EVENT_BUS_NAME="OrcaBusMain"
-DETAIL_TYPE="WorkflowRunUpdate"
-SOURCE="orcabus.manual"
+- [Complete DRAFT WRU Event Data Schema Page](https://www.jsonschemavalidator.net/s/Tvaxl9os)
 
-WORKFLOW_NAME="dragen-tso500-ctdna"
-WORKFLOW_VERSION="2.6.1"
-EXECUTION_ENGINE="ICA"
-CODE_VERSION="v2_6_1_8"
+### Release Management
 
-PAYLOAD_VERSION="2025.07.29"
+The service employs a fully automated CI/CD pipeline that automatically builds and releases all changes to the `main`
+code branch.
 
-# Glocals
-LIBRARY_ID="L2500384"
+A developer must enable the CodePipeline transition manually through the UI to promote changes to the `production`
+environment.
 
-# Functions
-get_hostname_from_ssm(){
-  aws ssm get-parameter \
-    --name "/hosted_zone/umccr/name" \
-    --output json | \
-  jq --raw-output \
-    '.Parameter.Value'
-}
+#### Upstream Pipelines
 
-get_orcabus_token(){
-  aws secretsmanager get-secret-value \
-    --secret-id orcabus/token-service-jwt \
-    --output json \
-    --query SecretString | \
-  jq --raw-output \
-    'fromjson | .id_token'
-}
+- [Analysis Glue](https://github.com/OrcaBus/service-analysis-glue)
 
-get_pipeline_id_from_workflow_version(){
-  local workflow_version="$1"
-  aws ssm get-parameter \
-    --name "/orcabus/workflows/dragen-tso500-ctdna/pipeline-ids-by-workflow-version/${workflow_version}" \
-    --output json | \
-  jq --raw-output \
-    '.Parameter.Value'
-}
+#### Downstream Pipelines
 
-get_library_obj_from_library_id(){
-  local library_id="$1"
-  curl --silent --fail --show-error --location \
-    --header "Authorization: Bearer $(get_orcabus_token)" \
-    --url "https://metadata.$(get_hostname_from_ssm)/api/v1/library?libraryId=${library_id}" | \
-  jq --raw-output \
-    '
-      .results[0] |
-      {
-        "libraryId": .libraryId,
-        "orcabusId": .orcabusId
-      }
-    '
-}
+- [PierianDx Tso500 ctDNA Pipeline Manager](https://github.com/OrcaBus/service-pieriandx-tso500-ctdna-pipeline-manager)
 
-generate_portal_run_id(){
-  echo "$(date -u +'%Y%m%d')$(openssl rand -hex 4)"
-}
+#### Primary Services
 
-get_linked_libraries(){
-  local library_id="$1"
-  local tumor_library_id="${2-}"
-
-  linked_library_obj=$(get_library_obj_from_library_id "$library_id")
-
-  if [ -n "$tumor_library_id" ]; then
-    tumor_linked_library_obj=$(get_library_obj_from_library_id "$tumor_library_id")
-  else
-    tumor_linked_library_obj="{}"
-  fi
-
-  jq --null-input --compact-output --raw-output \
-    --argjson libraryObj "$linked_library_obj" \
-    --argjson tumorLibraryObj "$tumor_linked_library_obj" \
-    '
-      [
-          $libraryObj,
-          $tumorLibraryObj
-      ] |
-      # Filter out empty values, tumorLibraryId is optional
-      # Then write back to JSON
-      map(select(length > 0))
-    '
-}
-
-get_workflow(){
-  local workflow_name="$1"
-  local workflow_version="$2"
-  local execution_engine="$3"
-  local execution_engine_pipeline_id="$4"
-  local code_version="$5"
-  curl --silent --fail --show-error --location \
-    --request GET \
-    --get \
-    --header "Authorization: Bearer $(get_orcabus_token)" \
-    --url "https://workflow.$(get_hostname_from_ssm)/api/v1/workflow" \
-    --data "$( \
-      jq \
-       --null-input --compact-output --raw-output \
-       --arg workflowName "$workflow_name" \
-       --arg workflowVersion "$workflow_version" \
-       --arg executionEngine "$execution_engine" \
-       --arg executionEnginePipelineId "$execution_engine_pipeline_id" \
-       --arg codeVersion "$code_version" \
-       '
-         {
-            "name": $workflowName,
-            "version": $workflowVersion,
-            "executionEngine": $executionEngine,
-            "executionEnginePipelineId": $executionEnginePipelineId,
-            "codeVersion": $codeVersion
-         } |
-         to_entries |
-         map(
-           "\(.key)=\(.value)"
-         ) |
-         join("&")
-       ' \
-    )" | \
-  jq --compact-output --raw-output \
-    '
-      .results[0]
-    '
-}
-
-# Generate the event
-event_cli_json="$( \
-  jq --null-input --raw-output \
-    --arg eventBusName "$EVENT_BUS_NAME" \
-    --arg detailType "$DETAIL_TYPE" \
-    --arg source "$SOURCE" \
-    --argjson workflow "$(get_workflow \
-      "${WORKFLOW_NAME}" "${WORKFLOW_VERSION}" \
-      "${EXECUTION_ENGINE}" "$(get_pipeline_id_from_workflow_version "${WORKFLOW_VERSION}")" \
-      "${CODE_VERSION}"
-    )" \
-    --arg payloadVersion "$PAYLOAD_VERSION" \
-    --arg portalRunId "$(generate_portal_run_id)" \
-    --argjson libraries "$(get_linked_libraries "${LIBRARY_ID}" "${TUMOR_LIBRARY_ID}")" \
-    '
-      {
-        # Standard fields for the event
-        "EventBusName": $eventBusName,
-        "DetailType": $detailType,
-        "Source": $source,
-        # Detail must be a JSON object in string format
-        "Detail": (
-          {
-            "status": "DRAFT",
-            "timestamp": (now | todateiso8601),
-            "workflow": $workflow,
-            "workflowRunName": ("umccr--automated--" + $workflow["name"] + "--" + ($workflow["version"] | gsub("\\."; "-")) + "--" + $portalRunId),
-            "portalRunId": $portalRunId,
-            "libraries": $libraries
-          } |
-          tojson
-        )
-      } |
-      # Now wrap into an "entry" for the CLI
-      {
-        "Entries": [
-          .
-        ]
-      }
-    ' \
-)"
-
-aws events put-events --no-cli-pager --cli-input-json "${event_cli_json}"
-```
-
-### Make your own minimal draft event with bash + jq (prod)
-
-```bash
-# Globals
-EVENT_BUS_NAME="OrcaBusMain"
-DETAIL_TYPE="WorkflowRunStateChange"
-SOURCE="orcabus.manual"
-
-WORKFLOW_NAME="dragen-tso500-ctdna"
-WORKFLOW_VERSION="2.6.1"
-
-PAYLOAD_VERSION="2025.07.29"
-
-# Glocals
-LIBRARY_ID="L2500384"
-
-# Functions
-get_hostname_from_ssm(){
-  aws ssm get-parameter \
-    --name "/hosted_zone/umccr/name" \
-    --output json | \
-  jq --raw-output \
-    '.Parameter.Value'
-}
-
-get_orcabus_token(){
-  aws secretsmanager get-secret-value \
-    --secret-id orcabus/token-service-jwt \
-    --output json \
-    --query SecretString | \
-  jq --raw-output \
-    'fromjson | .id_token'
-}
-
-get_library_obj_from_library_id(){
-  local library_id="$1"
-  curl --silent --fail --show-error --location \
-    --header "Authorization: Bearer $(get_orcabus_token)" \
-    --url "https://metadata.$(get_hostname_from_ssm)/api/v1/library?libraryId=${library_id}" | \
-  jq --raw-output \
-    '
-      .results[0] |
-      {
-        "libraryId": .libraryId,
-        "orcabusId": .orcabusId
-      }
-    '
-}
-
-generate_portal_run_id(){
-  echo "$(date -u +'%Y%m%d')$(openssl rand -hex 4)"
-}
-
-get_libraries(){
-  local library_id="$1"
-
-  library_obj=$(get_library_obj_from_library_id "$library_id")
-
-  jq --null-input --raw-output \
-    --argjson libraryObj "$library_obj" \
-    '
-      [
-          $libraryObj
-      ]
-    '
-}
-
-# Generate the event
-event_cli_json="$( \
-  jq --null-input --raw-output \
-    --arg eventBusName "$EVENT_BUS_NAME" \
-    --arg detailType "$DETAIL_TYPE" \
-    --arg source "$SOURCE" \
-    --arg workflowName "$WORKFLOW_NAME" \
-    --arg workflowVersion "${WORKFLOW_VERSION}" \
-    --arg payloadVersion "$PAYLOAD_VERSION" \
-    --arg portalRunId "$(generate_portal_run_id)" \
-    --argjson libraries "$(get_libraries "$LIBRARY_ID")" \
-    '
-      {
-        # Standard fields for the event
-        "EventBusName": $eventBusName,
-        "DetailType": $detailType,
-        "Source": $source,
-        # Detail must be a JSON object in string format
-        "Detail": (
-          {
-            "status": "DRAFT",
-            "timestamp": (now | todateiso8601),
-            "workflow": {
-                "name": $workflowName,
-                "version": $workflowVersion,
-            },
-            "workflowRunName": ("umccr--automated--" + $workflowName + "--" + ($workflowVersion | gsub("\\."; "-")) + "--" + $portalRunId),
-            "portalRunId": $portalRunId,
-            "libraries": $libraries
-          } |
-          tojson
-        )
-      } |
-      # Now wrap into an "entry" for the CLI
-      {
-        "Entries": [
-          .
-        ]
-      }
-    ' \
-)"
-
-echo aws events put-events --no-cli-pager --cli-input-json "${event_cli_json}"
-```
+- [ICAv2 WES Manager](https://github.com/OrcaBus/service-icav2-wes-manager)
+- [Workflow Manager](https://github.com/OrcaBus/service-workflow-manager)
+- [Fastq Glue](https://github.com/OrcaBus/service-fastq-glue)
 
 Infrastructure & Deployment
 --------------------------------------------------------------------------------
 
-Infrastructure and deployment are managed via CDK. This template provides two types of CDK entry points: `cdk-stateless` and `cdk-stateful`.
+> Deployment settings / configuration (e.g. CodePipeline(s) / automated builds).
 
+Infrastructure and deployment are managed via CDK. This template provides two types of CDK entry points: `cdk-stateless`
+and `cdk-stateful`.
 
 ### Stateful Stack
 
 The stateful stack for this service includes the following resources:
 
-These parameters are used to help generate READY Events for the Dragen WGTS DNA pipeline from DRAFT events.
+**Schemas**
 
-SSM Parameters List
+* We upload the complete WRU schema to the AWS Schemas registry,
+  this is used to validate a DRAFT event before it is allowed to mature into a READY event
 
-* workflowName: The name of the workflow managed by this service (dragen-wgts-dna)
-* workflowVersion: The workflow version 4.4.4
-* prefixPipelineIdsByWorkflowVersion: SSM Parameter root path mapping workflow versions to default ICAv2 pipeline IDs
-* icav2ProjectId: The default ICAv2 project ID for this service (development for dev, production for prod)
+We currently maintain following schemas:
+
+* complete-data-draft-schema.json
+
+**SSM Parameters List**
+
+These parameters are used to help generate READY Events for the Dragen TSO500 ctDNA pipeline from DRAFT events.
+
+All SSM parameters are under the prefix `/orcabus/workflows/dragen-tso500-ctdna/`
+
+* workflowName: The name of the workflow managed by this service (dragen-tso500-ctdna)
+* workflowVersion: The default workflow version 2.6.0
 * payloadVersion: The version of the payload schema used by this service (NA)
-* logsPrefix: The default prefix for logs generated by this service
-* outputPrefix: The default prefix for outputs generated by this service
-* cachePrefix: The default prefix for cache generated by this service
+* engine parameters
+    * pipelineIdsByWorkflowVersion: ICAv2 pipeline IDs by workflow version, one ssm parameter per workflow version
+    * icav2ProjectId: The default ICAv2 project ID for this service (development for dev, production for prod)
+    * logsPrefix: The default prefix for logs generated by this service
+    * outputPrefix: The default prefix for outputs generated by this service
+    * cachePrefix: The default cache prefix for outputs generated by this service
 
+We also map the schemas in this stack to SSM parameters.
 
-### Stateless
+### Stateless Stack
 
-#### StepFunctions
+The stateless stack for this service includes the following resources:
 
-**Dragen TSO500 ctDNA Draft to Ready State Machine**
+* Step Functions for parsing data between event states.
+* Lambdas - used inside step functions
+* EventBridge rules - to route events to step functions
+* EventBridge targets - to send events from step functions
 
-![draft-to-ready-sfn](docs/workflow-studio-exports/dragen-tso500-ctdna-draft-to-ready.svg)
-
-**Dragen TSO500 ctDNA Ready to ICAv2 WES Submitted State Machine**
-
-![ready-to-icav2-submitted-sfn](docs/workflow-studio-exports/dragen-tso500-ctdna-ready-to-icav2-wes-submitted.svg)
-
-**ICAv2 WES Event to WRSC Event State Machine**
-
-![icav2-analysis-sc-to-wrsc](docs/workflow-studio-exports/dragen-tso500-ctdna-icav2-analysis-state-change-to-wrsc-event.svg)
-
-### CDK Commands :construction:
+### CDK Commands
 
 You can access CDK commands using the `pnpm` wrapper script.
 
-- **`cdk-stateless`**: Used to deploy stacks containing stateless resources (e.g., AWS Lambda), which can be easily redeployed without side effects.
-- **`cdk-stateful`**: Used to deploy stacks containing stateful resources (e.g., AWS DynamoDB, AWS RDS), where redeployment may not be ideal due to potential side effects.
+- **`cdk-stateless`**: Used to deploy stacks containing stateless resources (e.g., AWS Lambda), which can be easily
+  redeployed without side effects.
+- **`cdk-stateful`**: Used to deploy stacks containing stateful resources (e.g., AWS DynamoDB, AWS RDS), where
+  redeployment may not be ideal due to potential side effects.
 
-The type of stack to deploy is determined by the context set in the `./bin/deploy.ts` file. This ensures the correct stack is executed based on the provided context.
+The type of stack to deploy is determined by the context set in the `./bin/deploy.ts` file. This ensures the correct
+stack is executed based on the provided context.
 
 For example:
 
@@ -539,27 +181,47 @@ pnpm cdk-stateless <command>
 pnpm cdk-stateful <command>
 ```
 
-### Stacks :construction:
+### Stacks
 
-This CDK project manages multiple stacks. The root stack (the only one that does not include `DeploymentPipeline` in its stack ID) is deployed in the toolchain account and sets up a CodePipeline for cross-environment deployments to `beta`, `gamma`, and `prod`.
+This CDK project manages multiple stacks. The root stack (the only one that does not include `DeploymentPipeline` in its
+stack ID) is deployed in the toolchain account and sets up a CodePipeline for cross-environment deployments to `beta`,
+`gamma`, and `prod`.
 
-To list all available stacks, run:
+#### Stateful Stack
+
+To list all available stateful stacks, run:
+
+```sh
+pnpm cdk-stateful ls
+```
+
+Output:
+
+```shell
+StatefulDragenTso500CtdnaPipeline
+StatefulDragenTso500CtdnaPipeline/StatefulDragenTso500CtdnaPipeline/OrcaBusBeta/StatefulDragenTso500Ctdna (OrcaBusBeta-StatefulDragenTso500Ctdna)
+StatefulDragenTso500CtdnaPipeline/StatefulDragenTso500CtdnaPipeline/OrcaBusGamma/StatefulDragenTso500Ctdna (OrcaBusGamma-StatefulDragenTso500Ctdna)
+StatefulDragenTso500CtdnaPipeline/StatefulDragenTso500CtdnaPipeline/OrcaBusProd/StatefulDragenTso500Ctdna (OrcaBusProd-StatefulDragenTso500Ctdna)
+```
+
+#### Stateless Stack
+
+To list all available stateless stacks, run:
 
 ```sh
 pnpm cdk-stateless ls
 ```
 
-Example output:
+Output:
 
 ```sh
-OrcaBusStatelessServiceStack
-OrcaBusStatelessServiceStack/DeploymentPipeline/OrcaBusBeta/DeployStack (OrcaBusBeta-DeployStack)
-OrcaBusStatelessServiceStack/DeploymentPipeline/OrcaBusGamma/DeployStack (OrcaBusGamma-DeployStack)
-OrcaBusStatelessServiceStack/DeploymentPipeline/OrcaBusProd/DeployStack (OrcaBusProd-DeployStack)
+StatelessDragenTso500CtdnaPipeline
+StatelessDragenTso500CtdnaPipeline/StatelessDragenTso500CtdnaPipeline/OrcaBusBeta/StatelessDragenTso500Ctdna (OrcaBusBeta-StatelessDragenTso500Ctdna)
+StatelessDragenTso500CtdnaPipeline/StatelessDragenTso500CtdnaPipeline/OrcaBusGamma/StatelessDragenTso500Ctdna (OrcaBusGamma-StatelessDragenTso500Ctdna)
+StatelessDragenTso500CtdnaPipeline/StatelessDragenTso500CtdnaPipeline/OrcaBusProd/StatelessDragenTso500Ctdna (OrcaBusProd-StatelessDragenTso500Ctdna)
 ```
 
-
-Development :construction:
+Development
 --------------------------------------------------------------------------------
 
 ### Project Structure
@@ -568,19 +230,32 @@ The root of the project is an AWS CDK project where the main application logic l
 
 The project is organized into the following key directories:
 
-- **`./app`**: Contains the main application logic. You can open the code editor directly in this folder, and the application should run independently.
+- **`./app`**: Contains the main application logic. This includes the lambda scripts, the event schemas and the step
+  functions in template ASL format.
 
-- **`./bin/deploy.ts`**: Serves as the entry point of the application. It initializes two root stacks: `stateless` and `stateful`. You can remove one of these if your service does not require it.
+- **`./bin/deploy.ts`**: Serves as the entry point of the application. It initializes two root stacks: `stateless` and
+  `stateful`. You can remove one of these if your service does not require it.
 
 - **`./infrastructure`**: Contains the infrastructure code for the project:
-  - **`./infrastructure/toolchain`**: Includes stacks for the stateless and stateful resources deployed in the toolchain account. These stacks primarily set up the CodePipeline for cross-environment deployments.
-  - **`./infrastructure/stage`**: Defines the stage stacks for different environments:
-    - **`./infrastructure/stage/config.ts`**: Contains environment-specific configuration files (e.g., `beta`, `gamma`, `prod`).
-    - **`./infrastructure/stage/stack.ts`**: The CDK stack entry point for provisioning resources required by the application in `./app`.
+    - **`./infrastructure/toolchain`**: Includes stacks for the stateless and stateful resources deployed in the
+      toolchain account. These stacks primarily set up the CodePipeline for cross-environment deployments.
+    - **`./infrastructure/stage`**: Defines the stage stacks for different environments:
+        - **`./infrastructure/stage/config.ts`**: Contains environment-specific configuration files (e.g., `beta`,
+          `gamma`, `prod`).
+        - **`./infrastructure/stage/constants.ts`**: Application specific constants used across the stack
+        - **`./infrastructure/stage/statefulApplicationStack.ts`**: The CDK stack entry point for provisioning stateful
+          resources required by the application in `./app`.
+        - **`./infrastructure/stage/statelessApplicationStack.ts`**: The CDK stack entry point for provisioning
+          stateless resources required by the application in `./app`.
+        - **`./infrastructure/stage/<service>`**: Interfaces and functions built per service, this might be lambda
+          function builder constructs, or dynamodb table builder constructs specific to the application
 
-- **`.github/workflows/pr-tests.yml`**: Configures GitHub Actions to run tests for `make check` (linting and code style), tests defined in `./test`, and `make test` for the `./app` directory. Modify this file as needed to ensure the tests are properly configured for your environment.
+- **`.github/workflows/pr-tests.yml`**: Configures GitHub Actions to run tests for `make check` (linting and code
+  style), tests defined in `./test`, and `make test` for the `./app` directory. Modify this file as needed to ensure the
+  tests are properly configured for your environment.
 
-- **`./test`**: Contains tests for CDK code compliance against `cdk-nag`. You should modify these test files to match the resources defined in the `./infrastructure` folder.
+- **`./test`**: Contains tests for CDK code compliance against `cdk-nag`. You should modify these test files to match
+  the resources defined in the `./infrastructure` folder.
 
 
 ### Setup
@@ -607,19 +282,23 @@ To install all required dependencies, run:
 make install
 ```
 
-#### First Steps
+#### Update Dependencies
 
-Before using this template, search for all instances of `TODO:` comments in the codebase and update them as appropriate for your service. This includes replacing placeholder values (such as stack names).
+To update dependencies, run:
 
+```sh
+pnpm update
+```
 
 ### Conventions
 
-### Linting & Formatting
+#### Linting & Formatting
 
-Automated checks are enforces via pre-commit hooks, ensuring only checked code is committed. For details consult the `.pre-commit-config.yaml` file.
+Automated checks are enforces via pre-commit hooks, ensuring only checked code is committed. For details consult the
+`.pre-commit-config.yaml` file.
 
-Manual, on-demand checking is also available via `make` targets (see below). For details consult the `Makefile` in the root of the project.
-
+Manual, on-demand checking is also available via `make` targets (see below). For details consult the `Makefile` in the
+root of the project.
 
 To run linting and formatting checks on the root project, use:
 
@@ -635,8 +314,8 @@ make fix
 
 ### Testing
 
-
-Unit tests are available for most of the business logic. Test code is hosted alongside business in `/tests/` directories.
+Unit tests are available for most of the business logic. Test code is hosted alongside business in `/tests/`
+directories.
 
 ```sh
 make test
@@ -645,11 +324,5 @@ make test
 Glossary & References
 --------------------------------------------------------------------------------
 
-For general terms and expressions used across OrcaBus services, please see the platform [documentation](https://github.com/OrcaBus/wiki/blob/main/orcabus-platform/README.md#glossary--references).
-
-Service specific terms:
-
-| Term      | Description                                      |
-|-----------|--------------------------------------------------|
-| Foo | ... |
-| Bar | ... |
+For general terms and expressions used across OrcaBus services, please see the
+platform [documentation](https://github.com/OrcaBus/wiki/blob/main/orcabus-platform/README.md#glossary--references).
