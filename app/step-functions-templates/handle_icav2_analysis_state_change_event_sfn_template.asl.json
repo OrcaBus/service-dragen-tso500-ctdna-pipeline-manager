@@ -37,20 +37,26 @@
           "JitterStrategy": "FULL"
         }
       ],
-      "Next": "If Succeeded Status",
+      "Next": "Check Status",
       "Assign": {
         "workflowRunStateChangeEvent": "{% $states.result.Payload.workflowRunStateChangeEvent %}",
         "engineParameters": "{% /* Includes the cache uri */ $states.result.Payload.workflowRunStateChangeEvent.payload.data.engineParameters %}",
-        "libraries": "{% $states.result.Payload.workflowRunStateChangeEvent.libraries %}"
+        "libraries": "{% $states.result.Payload.workflowRunStateChangeEvent.libraries %}",
+        "errorMessageUri": "{% $states.result.Payload.errorMessageUri %}",
+        "errorType": "{% $states.result.Payload.errorType %}"
       }
     },
-    "If Succeeded Status": {
+    "Check Status": {
       "Type": "Choice",
       "Choices": [
         {
           "Next": "Check sample has succeeded",
           "Condition": "{% $status = 'SUCCEEDED' %}",
           "Comment": "Is Succeeded status"
+        },
+        {
+          "Next": "Add comment for WES failure",
+          "Condition": "{% $status = 'FAILED' %}"
         }
       ],
       "Default": "Put WRSC Event"
@@ -339,6 +345,34 @@
         ]
       },
       "End": true
+    },
+    "Add comment for WES failure": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
+      "Arguments": {
+        "FunctionName": "${__add_wes_failure_comment_lambda_function_arn__}",
+        "Payload": {
+          "errorType": "{% $errorType %}",
+          "errorMessageUri": "{% $errorMessageUri %}",
+          "portalRunId": "{% $workflowRunStateChangeEvent.portalRunId %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Put WRSC Event"
     }
   },
   "QueryLanguage": "JSONata"

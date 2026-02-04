@@ -98,6 +98,13 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
   }
 
   /*
+    Needs workflow name environment variable
+  */
+  if (lambdaRequirements.needsWorkflowNameEnvVar) {
+    lambdaFunction.addEnvironment('WORKFLOW_NAME', WORKFLOW_NAME);
+  }
+
+  /*
     Special if the lambdaName is 'validateDraftCompleteSchema', we need to add in the ssm parameters
     to the REGISTRY_NAME and SCHEMA_NAME
    */
@@ -108,11 +115,6 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
       'SSM_SCHEMA_NAME',
       path.join(SSM_SCHEMA_ROOT, camelCaseToKebabCase(draftSchemaName), 'latest')
     );
-  }
-
-  /* Post schema validation needs the workflow name for commentary */
-  if (props.lambdaName === 'postSchemaValidation') {
-    lambdaFunction.addEnvironment('WORKFLOW_NAME', WORKFLOW_NAME);
   }
 
   /* Return the function */

@@ -171,6 +171,14 @@ def handler(event, context):
     if outputs is not None:
         latest_payload['data']['outputs'] = outputs
 
+    # Check if the status was FAILED, if so we populate the error message and type
+    if icav2_wes_event['status'] == 'FAILED':
+        error_type = icav2_wes_event.get('errorType', 'UnknownErrorType')
+        error_message_uri = icav2_wes_event.get('errorMessageUri', None)
+    else:
+        error_message_uri = None
+        error_type = None
+
     # Update the workflow object to contain 'name' and 'version'
     workflow = dict(deepcopy(workflow_run['workflow']))
 
@@ -194,7 +202,9 @@ def handler(event, context):
                 "version": latest_payload['version'],
                 "data": latest_payload['data']
             }
-        }
+        },
+        "errorMessageUri": error_message_uri,
+        "errorType": error_type,
     }
 
 
