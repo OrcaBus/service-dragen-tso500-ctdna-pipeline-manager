@@ -37,6 +37,10 @@ def handler(event, context):
     # Get inputs
     portal_run_id = event.get("portalRunId")
 
+    # Ensure portal run id is provided
+    if portal_run_id is None:
+        raise ValueError("portalRunId must be provided in the event")
+
     # Get the workflow run id from the portal run id
     workflow_run_id = get_workflow_run_from_portal_run_id(portal_run_id)["orcabusId"]
 
@@ -48,3 +52,8 @@ def handler(event, context):
             WORKFLOW_NAME=environ.get(WORKFLOW_NAME_ENV_VAR)
         )
     )
+
+    return {
+        "status": "comment_added",
+        "workflowRunId": workflow_run_id
+    }

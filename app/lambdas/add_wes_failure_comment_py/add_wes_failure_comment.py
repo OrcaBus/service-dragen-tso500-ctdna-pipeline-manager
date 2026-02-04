@@ -28,14 +28,36 @@ def handler(event, context):
     error_message_uri = event.get("errorMessageUri")
     portal_run_id = event.get("portalRunId")
 
+    # Ensure error type is provided
+    if error_type is None:
+        raise ValueError("errorType must be provided in the event")
+
+    # Ensure portal run id is provided
+    if portal_run_id is None:
+        raise ValueError("portalRunId must be provided in the event")
+
     # Get the workflow run id from the portal run id
     workflow_run_id = get_workflow_run_from_portal_run_id(portal_run_id)["orcabusId"]
+
+    # If error message uri is not none, set comment to include message uri
+    if error_message_uri is not None:
+        comment = (
+            f"The workflow has failed with error type '{error_type}', "
+            f"full traceback can be found at '{error_message_uri}'"
+        )
+    else:
+        comment = f"The workflow has failed with error type '{error_type}'. No error message uri provided."
 
     # Construct the comment
     add_comment_to_workflow_run(
         workflow_run_orcabus_id=workflow_run_id,
-        comment=f"The workflow has failed with error type '{error_type}', full traceback can be found at '{error_message_uri}'",
+        comment=comment,
         author=COMMENT_AUTHOR.format(
             WORKFLOW_NAME=environ.get(WORKFLOW_NAME_ENV_VAR)
         )
     )
+
+    return {
+        "status": "comment_added",
+        "workflowRunId": workflow_run_id
+    }

@@ -67,6 +67,7 @@ export interface LambdaRequirements {
   needsSchemaRegistryAccess?: boolean;
   needsSsmParametersAccess?: boolean;
   needsExternalBucketInfo?: boolean;
+  needsWorkflowNameEnvVar?: boolean;
 }
 
 // Lambda requirements mapping
@@ -109,15 +110,18 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
   validateDraftPayload: {
     needsSchemaRegistryAccess: true,
     needsSsmParametersAccess: true,
+    needsWorkflowNameEnvVar: true,
   },
   postSchemaValidation: {
     needsIcav2ToolsLayer: true,
     needsOrcabusApiToolsLayer: true,
     needsExternalBucketInfo: true,
+    needsWorkflowNameEnvVar: true,
   },
   // Ready-to-ICAv2 WES Request lambda functions
   addReadyDelayComment: {
     needsOrcabusApiToolsLayer: true,
+    needsWorkflowNameEnvVar: true,
   },
   getInstrumentRunIdFromFastqId: {
     needsOrcabusApiToolsLayer: true,
@@ -131,6 +135,7 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
   // Post submission
   addWesFailureComment: {
     needsOrcabusApiToolsLayer: true,
+    needsWorkflowNameEnvVar: true,
   },
   convertIcav2WesToWrscEvent: {
     needsOrcabusApiToolsLayer: true,
