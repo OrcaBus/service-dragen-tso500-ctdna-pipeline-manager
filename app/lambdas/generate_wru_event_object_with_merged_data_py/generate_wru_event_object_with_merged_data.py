@@ -50,7 +50,7 @@ def handler(event, context):
 
     # Remove any top-level keys in new_data_object where the value is null
     new_data_object = dict(filter(
-        lambda kv_iter_: kv_iter_[1] is not None,
+        lambda kv_iter_: kv_iter_[1],
         new_data_object.items()
     ))
 

@@ -63,11 +63,11 @@ Environment:
   AWS_REGION:   (Optional) The AWS region to use for AWS CLI commands.
 
 Example usage:
-bash generate-WRU-draft.sh tumor_library_id normal_library_id
-bash generate-WRU-draft.sh tumor_library_id normal_library_id \\
+bash generate-WRU-draft.sh library_id
+bash generate-WRU-draft.sh library_id \\
   --output-uri-prefix s3://project-bucket/analysis/dragen-tso500-ctdna/ \\
   --logs-uri-prefix s3://project-bucket/logs/dragen-tso500-ctdna \\
-  --cache-uri-prefix s3://project-bucket/logs/dragen-tso500-ctdna \\
+  --cache-uri-prefix s3://project-bucket/cache/dragen-tso500-ctdna \\
   --project-id project-uuid-1234-abcd
 "
 }
@@ -298,7 +298,6 @@ lambda_payload="$( \
     --arg portalRunId "${portal_run_id}" \
     --argjson libraries "$(get_linked_libraries)" \
     --argjson engineParameters "${engine_parameters}" \
-    --argjson disableSvCalling "${DISABLE_SV_CALLING}" \
     '
 	  {
 		"status": "DRAFT",
