@@ -36,8 +36,8 @@ def handler(event, context):
     data_obj: ProjectData = convert_uri_to_project_data_obj(icav2_uri)
 
     all_project_data: List[ProjectData] = find_project_data_bulk(
-        project_id=data_obj.project_id,
-        parent_folder_id=data_obj.data.id,
+        project_id=str(data_obj.project_id),
+        parent_folder_id=str(data_obj.data.id),
         data_type=FILE_DATA_TYPE
     )
 
@@ -73,31 +73,3 @@ def handler(event, context):
             )
         )
     }
-
-
-# if __name__ == "__main__":
-#     import json
-#     from os import environ
-#     environ['ICAV2_ACCESS_TOKEN_SECRET_ID'] = "ICAv2JWTKey-umccr-prod-service-dev"
-#     print(
-#         json.dumps(
-#             handler(
-#                 {
-#                     "icav2_uri": "icav2://development/analysis/cttsov2/20240714fbf1848e/"
-#                 },
-#                 None
-#             ),
-#             indent=2
-#         )
-#     )
-#
-#     # {
-#     #   "vcf_icav2_uri_list": [
-#     #     "icav2://ea19a3f5-ec7c-4940-a474-c31cd91dbad4/analysis/cttsov2/20240621ee2db947/Logs_Intermediates/DragenCaller/L2400159/L2400159.cnv.vcf",
-#     #     "icav2://ea19a3f5-ec7c-4940-a474-c31cd91dbad4/analysis/cttsov2/20240621ee2db947/Logs_Intermediates/DragenCaller/L2400159/L2400159.hard-filtered.vcf",
-#     #     "icav2://ea19a3f5-ec7c-4940-a474-c31cd91dbad4/analysis/cttsov2/20240621ee2db947/Logs_Intermediates/DragenCaller/L2400159/L2400159.raw.hard-filtered.vcf",
-#     #     "icav2://ea19a3f5-ec7c-4940-a474-c31cd91dbad4/analysis/cttsov2/20240621ee2db947/Logs_Intermediates/DragenCaller/L2400159/L2400159.sv.vcf",
-#     #     "icav2://ea19a3f5-ec7c-4940-a474-c31cd91dbad4/analysis/cttsov2/20240621ee2db947/Logs_Intermediates/Tmb/L2400159/L2400159.hard-filtered.vcf",
-#     #     "icav2://ea19a3f5-ec7c-4940-a474-c31cd91dbad4/analysis/cttsov2/20240621ee2db947/Results/L2400159/L2400159.cnv.vcf"
-#     #   ]
-#     # }

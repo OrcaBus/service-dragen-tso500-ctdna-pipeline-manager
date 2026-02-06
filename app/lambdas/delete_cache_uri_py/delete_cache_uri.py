@@ -18,6 +18,8 @@ cache_uri / SampleSheet.csv
 # Standard imports
 import logging
 
+from libica.openapi.v3 import ProjectData
+
 # Wrapica imports
 from wrapica.project_data import (
     convert_uri_to_project_data_obj,
@@ -68,8 +70,8 @@ def handler(event, context):
         return None
 
     cache_folder_list = list_project_data_non_recursively(
-        project_id=cache_obj.project_id,
-        parent_folder_id=cache_obj.data.id,
+        project_id=str(cache_obj.project_id),
+        parent_folder_id=str(cache_obj.data.id),
     )
 
     # Check that the directory has two entries overall
@@ -81,16 +83,19 @@ def handler(event, context):
         )
 
     # Instrument run id folder should be the only folder in the cache uri
-    instrument_run_id_folder = next(
-        filter(
-            lambda project_data_obj_iter: project_data_obj_iter.data.details.data_type == FOLDER_DATA_TYPE,
-            cache_folder_list
+    try:
+        instrument_run_id_folder: ProjectData = next(
+            filter(
+                lambda project_data_obj_iter: project_data_obj_iter.data.details.data_type == FOLDER_DATA_TYPE,
+                cache_folder_list
+            )
         )
-    )
+    except StopIteration:
+        raise ValueError(f"Instrument Run ID directory does not exist in cache uri {cache_uri}")
 
     instrument_run_id_folder_contents = list_project_data_non_recursively(
-        project_id=instrument_run_id_folder.project_id,
-        parent_folder_id=instrument_run_id_folder.data.id,
+        project_id=str(instrument_run_id_folder.project_id),
+        parent_folder_id=str(instrument_run_id_folder.data.id),
     )
 
     # Check that the instrument_run_id directory exists
@@ -106,8 +111,8 @@ def handler(event, context):
 
     # Confirm that only fastq files exist inside the sample folder obj
     sample_folder_list = list_project_data_non_recursively(
-        project_id=cache_obj.project_id,
-        parent_folder_id=sample_folder_obj.data.id,
+        project_id=str(cache_obj.project_id),
+        parent_folder_id=str(sample_folder_obj.data.id),
     )
 
     try:
@@ -150,9 +155,14 @@ def handler(event, context):
 
     # Delete the cache directory
     delete_project_data(
-        project_id=cache_obj.project_id,
-        data_id=cache_obj.data.id,
+        project_id=str(cache_obj.project_id),
+        data_id=str(cache_obj.data.id),
     )
+
+    return {
+        "status": "success",
+        "message": f"Cache uri {cache_uri} has been deleted successfully"
+    }
 
 
 # if __name__ == "__main__":

@@ -48,7 +48,7 @@ def handler(event, context):
     # Merge the data from the dragen draft payload into the draft payload
     new_data_object = payload['data'].copy()
 
-    # Remove any top-level keys in new_data_object where the value is null
+    # Remove any top-level keys in new_data_object where the object is empty or the value is null
     new_data_object = dict(filter(
         lambda kv_iter_: kv_iter_[1],
         new_data_object.items()
