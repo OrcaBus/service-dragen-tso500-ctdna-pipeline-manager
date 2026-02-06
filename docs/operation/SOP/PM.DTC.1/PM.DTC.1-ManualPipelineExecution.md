@@ -30,7 +30,7 @@ For convenience, we provide a shell script that generates and optionally submits
     - ensure the values are fit for your use case, e.g. for clinical samples match the accredited pipeline details
   - Set the engine parameters (if necessary) and library id(s) in the positional arguments.
 - execute the script (e.g. `bash generate-WRU-draft.sh`)
-  - Note: AWS credentials need to set on the environment
+  - Note: AWS credentials need to be set on the environment
 - the script should produce the JSON output of the DRAFT event that can be inspected to double check that reflects the intended request
   - take note of the generated `workflowRunName` or `portalRunId` and the URL to the OrcaBus Portal view of the workflow.
 
@@ -41,5 +41,5 @@ The OrcaBus [Portal](https://portal.umccr.org/) can be used to check whether the
 - navigate to the Portal's WorkflowRun listing: https://portal.umccr.org/runs/workflow
 - search for your WorkflowRun using the `workflowRunName` or `portalRunId`
 - confirm that the WorkflowRun is listed and progressing as expected (check over time)
-- once the WorkflowRun as `SUCCEEDED` the results should be available via the Portal's [Files](https://portal.umccr.org/files) view
+- once the WorkflowRun has `SUCCEEDED` the results should be available via the Portal's [Files](https://portal.umccr.org/files) view
   - simply filter by the `portalRunId`

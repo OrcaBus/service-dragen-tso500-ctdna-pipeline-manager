@@ -18,7 +18,7 @@
       "Resource": "arn:aws:states:::lambda:invoke",
       "Output": "{% $states.result.Payload %}",
       "Arguments": {
-        "FunctionName": "${__add_ready_delay_lambda_function_arn__}",
+        "FunctionName": "${__add_ready_delay_comment_lambda_function_arn__}",
         "Payload": {
           "portalRunId": "{% $portalRunId %}"
         }

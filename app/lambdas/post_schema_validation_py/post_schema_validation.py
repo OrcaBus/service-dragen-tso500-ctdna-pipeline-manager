@@ -115,12 +115,11 @@ def validate_inputs(
             fastq_obj.get("read2FileUri")
         ])
 
-    # Remove empty values from list
+    # Remove empty / null values from list
     data_uris = list(filter(
-        lambda uri_iter_: (
-            # Is not empty
-                uri_iter_ is not None
-        )
+        # Is not empty or None
+        lambda uri_iter_: uri_iter_,
+        data_uris
     ))
 
     # Confirm each data uri is available from the filemanager

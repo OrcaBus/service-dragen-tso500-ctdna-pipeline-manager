@@ -17,12 +17,12 @@ from orcabus_api_tools.workflow import (
 
 # Globals
 WORKFLOW_NAME_ENV_VAR = "WORKFLOW_NAME"
-COMMENT_AUTHOR = "{WORKFLOW_NAME}-workflow-validation-service"
+COMMENT_AUTHOR = "{WORKFLOW_NAME}-workflow-orchestration-service"
 
 MESSAGE = dedent(
     """
-    Before we can submit an ICAv2 WES event, we need to first decompress the fastq data from ORA to GZIP format
-    and generate a TSO500 ctDNA appropriate SampleSheet.
+    Before we can submit an ICAv2 WES event, we need to first decompress the fastq data
+    from ORA to GZIP format and generate a TSO500 ctDNA appropriate SampleSheet.
     This may take some time depending on the size of the input data.
     """
 ).strip()

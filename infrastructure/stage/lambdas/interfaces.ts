@@ -111,6 +111,7 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
     needsSchemaRegistryAccess: true,
     needsSsmParametersAccess: true,
     needsWorkflowNameEnvVar: true,
+    needsOrcabusApiToolsLayer: true,
   },
   postSchemaValidation: {
     needsIcav2ToolsLayer: true,

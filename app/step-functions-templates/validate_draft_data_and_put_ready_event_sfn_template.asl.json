@@ -97,7 +97,7 @@
       "Arguments": {
         "Entries": [
           {
-            "Detail": "{% $merge([\n  $detail,\n  {\n    \"timestamp\": $now(),\n    \"status\": \"${__ready_event_status__}\"\n  }\n]) %}",
+            "Detail": "{% $merge([\n  $detail,\n  {\n    \"timestamp\": $now(),\n    \"status\": \"${__ready_event_status__}\"\n  }\n]) ~>\n| $.payload | {}, [\"orcabusId\", \"refId\"] | %}",
             "DetailType": "${__workflow_run_update_event_detail_type__}",
             "EventBusName": "${__event_bus_name__}",
             "Source": "${__stack_source__}"
