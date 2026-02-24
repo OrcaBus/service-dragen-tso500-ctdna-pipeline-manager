@@ -97,6 +97,8 @@ code branch.
 A developer must enable the CodePipeline transition manually through the UI to promote changes to the `production`
 environment.
 
+### Related Services & Pipelines
+
 #### Upstream Pipelines
 
 - [Analysis Glue](https://github.com/OrcaBus/service-analysis-glue)
@@ -109,6 +111,7 @@ environment.
 
 - [ICAv2 WES Manager](https://github.com/OrcaBus/service-icav2-wes-manager)
 - [Workflow Manager](https://github.com/OrcaBus/service-workflow-manager)
+- [Fastq Manager](https://github.com/OrcaBus/service-fastq-manager)
 - [Fastq Glue](https://github.com/OrcaBus/service-fastq-glue)
 
 Infrastructure & Deployment

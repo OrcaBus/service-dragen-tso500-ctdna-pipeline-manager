@@ -6,6 +6,7 @@
       "Type": "Pass",
       "Next": "Note delay",
       "Assign": {
+        "workflowVersion": "{% $states.input.workflow.version %}",
         "portalRunId": "{% $states.input.portalRunId %}",
         "workflowRunName": "{% $states.input.workflowRunName %}",
         "dataInputs": "{% $states.input.payload.data.inputs %}",
@@ -62,14 +63,49 @@
           "JitterStrategy": "FULL"
         }
       ],
-      "Next": "Upload inputs",
+      "Next": "Get instrument run id from fastq id",
       "Assign": {
         "fastqIdList": "{% $states.result.Payload.fastqIdList %}"
       }
     },
+    "Get instrument run id from fastq id": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${__get_instrument_run_id_from_fastq_id_lambda_function_arn__}",
+        "Payload": {
+          "fastqId": "{% $fastqIdList[0] %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Assign run folder uri",
+      "Assign": {
+        "instrumentRunId": "{% $states.result.Payload.instrumentRunId %}"
+      }
+    },
+    "Assign run folder uri": {
+      "Type": "Pass",
+      "Next": "Upload inputs",
+      "Assign": {
+        "runFolderUri": "{% $dataEngineParameters.cacheUri & $instrumentRunId & '/' %}"
+      }
+    },
     "Upload inputs": {
       "Type": "Parallel",
-      "Next": "Get instrument run id from fastq id",
+      "Next": "Generate ICAv2 WES Request",
       "Branches": [
         {
           "StartAt": "Generate minimal samplesheet from fastq id list",
@@ -80,7 +116,8 @@
               "Arguments": {
                 "FunctionName": "${__generate_minimal_samplesheet_from_fastq_id_list_lambda_function_arn__}",
                 "Payload": {
-                  "fastqListRows": "{% $dataInputs.fastqListRows %}"
+                  "fastqListRows": "{% $dataInputs.fastqListRows %}",
+                  "workflowVersion": "{% $workflowVersion %}"
                 }
               },
               "Retry": [
@@ -132,8 +169,122 @@
           }
         },
         {
-          "StartAt": "Decompress Fastqs to directory",
+          "StartAt": "Determine Compression Type",
           "States": {
+            "Determine Compression Type": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Arguments": {
+                "FunctionName": "${__determine_compression_type_lambda_function_arn__}",
+                "Payload": {
+                  "fastqListRows": "{% $dataInputs.fastqListRows %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "Next": "Is ORA files",
+              "Output": {
+                "isOra": "{% $states.result.Payload.isOra %}"
+              }
+            },
+            "Is ORA files": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Next": "Generate fastq uri by fastq ID map",
+                  "Condition": "{% $states.input.isOra ? true : false %}"
+                }
+              ],
+              "Default": "Generate ICAv2 Data Copy Payload"
+            },
+            "Generate fastq uri by fastq ID map": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Arguments": {
+                "FunctionName": "${__generate_fastq_uri_by_fastq_id_map_lambda_function_arn__}",
+                "Payload": {
+                  "fastqListRows": "{% $dataInputs.fastqListRows %}",
+                  "fastqIdList": "{% $fastqIdList %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "Next": "Decompress Fastqs to directory",
+              "Output": {
+                "fileUriByFastqIdMap": "{% $states.result.Payload.fileUriByFastqIdMap %}"
+              }
+            },
+            "Generate ICAv2 Data Copy Payload": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Arguments": {
+                "FunctionName": "${__generate_icav2_data_copy_payload_lambda_function_arn__}",
+                "Payload": {
+                  "fastqListRows": "{% $dataInputs.fastqListRows %}",
+                  "runFolderUri": "{% $runFolderUri %}"
+                }
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2,
+                  "JitterStrategy": "FULL"
+                }
+              ],
+              "Next": "ICAv2 Data Copy Request",
+              "Output": {
+                "dataCopyPayload": "{% $states.result.Payload.dataCopyPayload %}"
+              }
+            },
+            "ICAv2 Data Copy Request": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::events:putEvents.waitForTaskToken",
+              "Arguments": {
+                "Entries": [
+                  {
+                    "Detail": {
+                      "payload": "{% $states.input.dataCopyPayload %}",
+                      "taskToken": "{% $states.context.Task.Token %}"
+                    },
+                    "DetailType": "${__icav2_data_copy_request_detail_type__}",
+                    "EventBusName": "${__event_bus_name__}",
+                    "Source": "${__event_source__}"
+                  }
+                ]
+              },
+              "End": true
+            },
             "Decompress Fastqs to directory": {
               "Type": "Task",
               "Resource": "arn:aws:states:::events:putEvents.waitForTaskToken",
@@ -145,7 +296,8 @@
                       "payload": {
                         "fastqIdList": "{% $fastqIdList %}",
                         "outputUriPrefix": "{% $dataEngineParameters.cacheUri %}",
-                        "noSplitByLane": true
+                        "noSplitByLane": true,
+                        "fileUriByFastqIdMap": "{% $states.input.fileUriByFastqIdMap %}"
                       }
                     },
                     "DetailType": "${__fastq_decompression_request_detail_type__}",
@@ -158,15 +310,24 @@
             }
           }
         }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "Add Upload Failure Note"
+        }
       ]
     },
-    "Get instrument run id from fastq id": {
+    "Add Upload Failure Note": {
       "Type": "Task",
       "Resource": "arn:aws:states:::lambda:invoke",
+      "Output": "{% $states.result.Payload %}",
       "Arguments": {
-        "FunctionName": "${__get_instrument_run_id_from_fastq_id_lambda_function_arn__}",
+        "FunctionName": "${__add_upload_failure_comment_lambda_function_arn__}",
         "Payload": {
-          "fastqId": "{% $fastqIdList[0] %}"
+          "errorType": "Inputs Creation Failure",
+          "stepsExecutionId": "{% $states.context.Execution.Id %}",
+          "portalRunId": "{% $portalRunId %}"
         }
       },
       "Retry": [
@@ -183,10 +344,25 @@
           "JitterStrategy": "FULL"
         }
       ],
-      "Next": "Generate ICAv2 WES Request",
-      "Output": {
-        "instrumentRunId": "{% $states.result.Payload.instrumentRunId %}"
-      }
+      "Next": "Put WRU Failed Event"
+    },
+    "Put WRU Failed Event": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Arguments": {
+        "Entries": [
+          {
+            "Detail": "{% $merge([\n  $detail,\n  {\n    \"timestamp\": $now(),\n    \"status\": \"${__failed_event_status__}\"\n  }\n]) ~>\n| $.payload | {}, [\"orcabusId\", \"refId\"] | %}",
+            "DetailType": "${__workflow_run_update_event_detail_type__}",
+            "EventBusName": "${__event_bus_name__}",
+            "Source": "${__stack_source__}"
+          }
+        ]
+      },
+      "Next": "Fail"
+    },
+    "Fail": {
+      "Type": "Fail"
     },
     "Generate ICAv2 WES Request": {
       "Type": "Task",
@@ -198,7 +374,7 @@
               "name": "{% $workflowRunName %}",
               "inputs": {
                 "sample_sheet": "{% $dataEngineParameters.cacheUri & 'SampleSheet.csv' %}",
-                "run_folder": "{% $dataEngineParameters.cacheUri & $states.input.instrumentRunId & '/' %}",
+                "run_folder": "{% $runFolderUri %}",
                 "StartsFromFastq": true,
                 "sample_pair_ids": "{% $dataInputs.sampleName %}"
               },

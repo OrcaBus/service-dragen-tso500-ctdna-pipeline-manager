@@ -81,10 +81,20 @@ export const ICAV2_WES_EVENT_SOURCE = 'orcabus.icav2wesmanager';
 
 export const FASTQ_SYNC_DETAIL_TYPE = 'FastqSync';
 export const FASTQ_DECOMPRESSION_DETAIL_TYPE = 'OraDecompressionRequestSync';
+export const ICAV2_DATA_COPY_REQUEST_DETAIL_TYPE = 'ICAv2DataCopySync';
+
+/* External SSM Parameter Constants */
+export const ICAV2_STORAGE_CONFIGURATIONS_SSM_PARAMETER_PATH_PREFIX =
+  '/icav2/umccr-prod/storage-configurations/';
+export const ICAV2_PROJECT_TO_STORAGE_CONFIGURATIONS_SSM_PARAMETER_PATH_PREFIX =
+  '/icav2/umccr-prod/project-to-storage-configurations/';
+export const ICAV2_STORAGE_CREDENTIALS_SSM_PARAMETER_PATH_PREFIX =
+  '/icav2/umccr-prod/storage-credentials/';
 
 /* Event rule constants */
 export const DRAFT_STATUS = 'DRAFT';
 export const READY_STATUS = 'READY';
+export const FAILED_STATUS = 'FAILED';
 
 /* Schema constants */
 export const SCHEMA_REGISTRY_NAME = DATA_SCHEMA_REGISTRY_NAME;

@@ -14,14 +14,64 @@ echo_stderr(){
   echo "$(date -Iseconds):" "$@" 1>&2
 }
 
+parameter_prefix_to_yaml(){
+  local parameter_prefix="${1}"
+  local yaml_path="${2}"
+  aws ssm get-parameters-by-path \
+	--path "${parameter_prefix}" \
+	--output json | \
+  jq --raw-output \
+	'
+	  .Parameters |
+	  map(.Value | fromjson)
+	' | \
+  yq --unwrapScalar --prettyPrint > "${yaml_path}"
+}
+
 # SECRET KEY FOR ICAV2
 if [[ ! -v ICAV2_ACCESS_TOKEN_SECRET_ID ]]; then
   echo_stderr "Error! Expected env var 'ICAV2_ACCESS_TOKEN_SECRET_ID' but was not found"
   exit 1
 fi
 
-echo_stderr "Collecting the ICAV2 access token"
+# Icav2 Storage configuration files
+echo_stderr "Collecting configuration files"
+
+# Storage configuration list file key prefix
+if [[ ! -v ICAV2_STORAGE_CONFIGURATION_SSM_PARAMETER_PATH_PREFIX ]]; then
+  echo_stderr "Error! Expected env var 'ICAV2_STORAGE_CONFIGURATION_SSM_PARAMETER_PATH_PREFIX' but was not found"
+  exit 1
+fi
+ICAV2_STORAGE_CONFIGURATION_LIST_FILE="project_configuration_list.yaml"
+parameter_prefix_to_yaml \
+  "${ICAV2_STORAGE_CONFIGURATION_SSM_PARAMETER_PATH_PREFIX}" \
+  "${ICAV2_STORAGE_CONFIGURATION_LIST_FILE}"
+export ICAV2_STORAGE_CONFIGURATION_LIST_FILE
+
+# Project to Storage Configuration mapping
+if [[ ! -v ICAV2_PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_SSM_PARAMETER_PATH_PREFIX ]]; then
+  echo_stderr "Error! Expected env var 'ICAV2_PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_SSM_PARAMETER_PATH_PREFIX' but was not found"
+  exit 1
+fi
+ICAV2_PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST_FILE="project_to_storage_configuration_mapping_list.yaml"
+parameter_prefix_to_yaml \
+  "${ICAV2_PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_SSM_PARAMETER_PATH_PREFIX}" \
+  "${ICAV2_PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST_FILE}"
+export ICAV2_PROJECT_TO_STORAGE_CONFIGURATION_MAPPING_LIST_FILE
+
+# Storage Credentials
+if [[ ! -v ICAV2_STORAGE_CREDENTIAL_LIST_FILE_SSM_PARAMETER_PATH_PREFIX ]]; then
+  echo_stderr "Error! Expected env var 'ICAV2_STORAGE_CREDENTIAL_LIST_FILE_SSM_PARAMETER_PATH_PREFIX' but was not found"
+  exit 1
+fi
+ICAV2_STORAGE_CREDENTIAL_LIST_FILE="storage_credential_list.yaml"
+parameter_prefix_to_yaml \
+  "${ICAV2_STORAGE_CREDENTIAL_LIST_FILE_SSM_PARAMETER_PATH_PREFIX}" \
+  "${ICAV2_STORAGE_CREDENTIAL_LIST_FILE}"
+export ICAV2_STORAGE_CREDENTIAL_LIST_FILE
+
 # Get the ICAV2 access token
+echo_stderr "Collecting the ICAV2 access token"
 ICAV2_ACCESS_TOKEN="$( \
   aws secretsmanager get-secret-value \
     --secret-id "${ICAV2_ACCESS_TOKEN_SECRET_ID}" \

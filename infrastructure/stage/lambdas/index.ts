@@ -137,3 +137,18 @@ export function buildAllLambdas(scope: Construct): LambdaObject[] {
 
   return lambdaObjects;
 }
+
+export function getLambdaResourceLogicalArn(lambdaFunction: lambda.Function): string | null {
+  // Find L1 CloudFormation CfnFunction resource(s) under the L2 Function (exclude Alias/Version L1s)
+  const cfnFunctions = lambdaFunction.node
+    .findAll()
+    .filter((n) => n instanceof lambda.CfnFunction) as lambda.CfnFunction[];
+
+  // Use the first CfnFunction's logical ID
+  if (cfnFunctions.length > 0) {
+    const logicalId = cdk.Stack.of(lambdaFunction).getLogicalId(cfnFunctions[0]);
+    return `Resource::<${logicalId}.Arn>:*`;
+  }
+
+  return null;
+}

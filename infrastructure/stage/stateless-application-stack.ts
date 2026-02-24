@@ -46,7 +46,15 @@ export class StatelessApplicationStack extends cdk.Stack {
     // Build the fargate task
     // Part 2 - Build ECS Tasks / Fargate Clusters
     const fargateTabixTaskObj = buildTabixFargateTask(this, {
+      // ICAv2 Secret
       icav2AccessTokenSecretObj: icav2AccessTokenSecretObj,
+      // SSM Parameter paths
+      storageConfigurationSsmParameterPathPrefix:
+        props.ssmParameterPaths.storageConfigurationSsmParameterPathPrefix,
+      projectToStorageConfigurationsSsmParameterPathPrefix:
+        props.ssmParameterPaths.projectToStorageConfigurationsSsmParameterPathPrefix,
+      storageCredentialsSsmParameterPathPrefix:
+        props.ssmParameterPaths.storageCredentialsSsmParameterPathPrefix,
     });
 
     // Build the state machines

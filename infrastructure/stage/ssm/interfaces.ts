@@ -27,6 +27,11 @@ export interface SsmParameterPaths {
   logsPrefix: string;
   outputPrefix: string;
   cachePrefix: string;
+
+  // ICA Ssm Parameter Paths
+  storageConfigurationSsmParameterPathPrefix: string;
+  projectToStorageConfigurationsSsmParameterPathPrefix: string;
+  storageCredentialsSsmParameterPathPrefix: string;
 }
 
 export interface BuildSsmParameterProps {

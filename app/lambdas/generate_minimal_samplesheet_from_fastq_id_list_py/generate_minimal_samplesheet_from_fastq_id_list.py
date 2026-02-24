@@ -23,6 +23,7 @@ import logging
 from copy import copy
 from typing import Dict, Literal, Optional, List
 import typing
+from semantic_version import Version
 
 # Samplesheet imports
 from v2_samplesheet_maker.functions.v2_samplesheet_writer import v2_samplesheet_writer
@@ -39,6 +40,7 @@ logger = logging.getLogger(__name__)
 # Globals
 SAMPLESHEET_BASENAME = "SampleSheet.csv"
 SAMPLE_TYPE = Literal["DNA"]
+V3_INDEX_WORKFLOW_VERSION_SUPPORT = Version("2.6.3")
 
 # Samplesheet globals
 # Globals
@@ -1056,7 +1058,10 @@ def get_tso500l_data_row_from_fastq_list_row(fastq_list_row: 'FastqListRowDict')
     }
 
 
-def build_samplesheet(fastq_list_rows: List['FastqListRowDict']) -> Dict:
+def build_samplesheet(
+        fastq_list_rows: List['FastqListRowDict'],
+        v3_indexes_supported: Optional[bool] = False
+) -> Dict:
     # Get the instrument run id from the first fastq list row
     instrument_run_id = fastq_list_rows[0]["rgid"].split('.', 2)[-1]
 
@@ -1104,30 +1109,31 @@ def build_samplesheet(fastq_list_rows: List['FastqListRowDict']) -> Dict:
 
     # If any of the index ids end with V3, we might need to a bit of a 'switcheroo' to
     # convince the dragen tso500 pipeline we can pass the samplesheet validation step
-    for tso500l_data_row in tso500l_data:
-        if tso500l_data_row["i7_index_id"].endswith("V3"):
-            # Update the tso500 row i7 index id and index
-            tso500l_data_row["i7_index_id"] = tso500l_data_row["i7_index_id"].replace("V3", "")
-            tso500l_data_row["index"] = next(filter(
-                lambda index_dict: index_dict.get("index_id") == tso500l_data_row["i7_index_id"],
-                V2_CTTSO_VALID_INDEXES
-            )).get("index")
-            # We will also need to update the bclconvert data row index
-            for bclconvert_data_row in bclconvert_data:
-                if bclconvert_data_row["sample_id"] == tso500l_data_row["sample_id"]:
-                    bclconvert_data_row["index"] = tso500l_data_row["index"]
+    if not v3_indexes_supported:
+        for tso500l_data_row in tso500l_data:
+            if tso500l_data_row["i7_index_id"].endswith("V3"):
+                # Update the tso500 row i7 index id and index
+                tso500l_data_row["i7_index_id"] = tso500l_data_row["i7_index_id"].replace("V3", "")
+                tso500l_data_row["index"] = next(filter(
+                    lambda index_dict: index_dict.get("index_id") == tso500l_data_row["i7_index_id"],
+                    V2_CTTSO_VALID_INDEXES
+                )).get("index")
+                # We will also need to update the bclconvert data row index
+                for bclconvert_data_row in bclconvert_data:
+                    if bclconvert_data_row["sample_id"] == tso500l_data_row["sample_id"]:
+                        bclconvert_data_row["index"] = tso500l_data_row["index"]
 
-        if tso500l_data_row["i5_index_id"].endswith("V3"):
-            # Update the tso500 row i5 index id and index2
-            tso500l_data_row["i5_index_id"] = tso500l_data_row["i5_index_id"].replace("V3", "")
-            tso500l_data_row["index2"] = next(filter(
-                lambda index_dict: index_dict.get("index_id") == tso500l_data_row["i5_index_id"],
-                V2_CTTSO_VALID_INDEXES
-            )).get("index2")
-            # We will also need to update the bclconvert data row index
-            for bclconvert_data_row in bclconvert_data:
-                if bclconvert_data_row["sample_id"] == tso500l_data_row["sample_id"]:
-                    bclconvert_data_row["index2"] = tso500l_data_row["index2"]
+            if tso500l_data_row["i5_index_id"].endswith("V3"):
+                # Update the tso500 row i5 index id and index2
+                tso500l_data_row["i5_index_id"] = tso500l_data_row["i5_index_id"].replace("V3", "")
+                tso500l_data_row["index2"] = next(filter(
+                    lambda index_dict: index_dict.get("index_id") == tso500l_data_row["i5_index_id"],
+                    V2_CTTSO_VALID_INDEXES
+                )).get("index2")
+                # We will also need to update the bclconvert data row index
+                for bclconvert_data_row in bclconvert_data:
+                    if bclconvert_data_row["sample_id"] == tso500l_data_row["sample_id"]:
+                        bclconvert_data_row["index2"] = tso500l_data_row["index2"]
 
     # Return the samplesheet as a dictionary
     return {
@@ -1156,13 +1162,22 @@ def handler(event, context):
 
     # Get inputs
     fastq_list_rows: List['FastqListRowDict'] = event.get("fastqListRows")
+    workflow_version: str = event.get("workflowVersion")
 
-    # Check fastq_list_rows is provideds
+    # Check fastq_list_rows is provided
     if not fastq_list_rows:
         raise ValueError("fastqListRows is required")
 
+    if workflow_version is not None:
+        v3_indexes_supported = (Version(workflow_version) >= V3_INDEX_WORKFLOW_VERSION_SUPPORT)
+    else:
+        v3_indexes_supported = False
+
     # Build the new samplesheet
-    samplesheet = build_samplesheet(fastq_list_rows)
+    samplesheet = build_samplesheet(
+        fastq_list_rows=fastq_list_rows,
+        v3_indexes_supported=v3_indexes_supported,
+    )
 
     return {
         "samplesheetStr": str(v2_samplesheet_writer(samplesheet).read())
