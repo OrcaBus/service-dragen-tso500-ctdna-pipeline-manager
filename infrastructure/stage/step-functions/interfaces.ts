@@ -82,6 +82,10 @@ export const stepFunctionToLambdasMap: Record<StateMachineName, LambdaName[]> = 
   validateDraftDataAndPutReadyEvent: ['validateDraftPayload', 'postSchemaValidation'],
   readyEventToIcav2WesRequestEvent: [
     'addReadyDelayComment',
+    'addUploadFailureComment',
+    'determineCompressionType',
+    'generateFastqUriByFastqIdMap',
+    'generateIcav2DataCopyPayload',
     'getFastqIdListFromFastqRgidList',
     'generateMinimalSamplesheetFromFastqIdList',
     'getInstrumentRunIdFromFastqId',

@@ -13,3 +13,5 @@ cdk.out
 # IDE
 .idea
 .DS_Store
+
+cdk.logs.txt

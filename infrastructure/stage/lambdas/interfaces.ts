@@ -18,6 +18,10 @@ export type LambdaName =
   | 'postSchemaValidation'
   // Ready-to-ICAv2 WES Request lambda functions
   | 'addReadyDelayComment'
+  | 'addUploadFailureComment'
+  | 'determineCompressionType'
+  | 'generateFastqUriByFastqIdMap'
+  | 'generateIcav2DataCopyPayload'
   | 'getInstrumentRunIdFromFastqId'
   | 'generateMinimalSamplesheetFromFastqIdList'
   | 'uploadSamplesheetToCacheDirectory'
@@ -48,6 +52,10 @@ export const lambdaNamesList: LambdaName[] = [
   'postSchemaValidation',
   // Ready-to-ICAv2 WES Request lambda functions
   'addReadyDelayComment',
+  'addUploadFailureComment',
+  'determineCompressionType',
+  'generateFastqUriByFastqIdMap',
+  'generateIcav2DataCopyPayload',
   'getInstrumentRunIdFromFastqId',
   'generateMinimalSamplesheetFromFastqIdList',
   'uploadSamplesheetToCacheDirectory',
@@ -123,6 +131,19 @@ export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
   addReadyDelayComment: {
     needsOrcabusApiToolsLayer: true,
     needsWorkflowNameEnvVar: true,
+  },
+  addUploadFailureComment: {
+    needsOrcabusApiToolsLayer: true,
+    needsWorkflowNameEnvVar: true,
+  },
+  determineCompressionType: {
+    needsOrcabusApiToolsLayer: true,
+  },
+  generateFastqUriByFastqIdMap: {
+    needsOrcabusApiToolsLayer: true,
+  },
+  generateIcav2DataCopyPayload: {
+    needsOrcabusApiToolsLayer: true,
   },
   getInstrumentRunIdFromFastqId: {
     needsOrcabusApiToolsLayer: true,

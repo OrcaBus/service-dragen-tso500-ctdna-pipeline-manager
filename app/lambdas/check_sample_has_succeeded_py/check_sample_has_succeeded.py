@@ -7,7 +7,7 @@ required outputUri in the event
 
 Success if:
 1* Errors folder does not exist besides Logs_Intermediates and Results directories
-2* If Results/MetricsOutput.tsv
+2* If Results/MetricsOutput.tsv file contains 'FAILED_STEPS\tNA'
 """
 
 # Standard imports
@@ -232,68 +232,3 @@ def handler(event, context):
         'success': False,
         'message': f"Workflow failed at '{get_workflow_step_of_failure(errors_folder)}' step"
     }
-
-# Failed workflow
-# if __name__ == "__main__":
-#     environ['AWS_PROFILE'] = 'umccr-production'
-#     environ['AWS_REGION'] = 'ap-southeast-2'
-#     environ['ICAV2_ACCESS_TOKEN_SECRET_ID'] = "ICAv2JWTKey-umccr-prod-service-production"
-#     print(
-#         json.dumps(
-#             handler(
-#                 {
-#                     "output_uri": "s3://pipeline-prod-cache-503977275616-ap-southeast-2/byob-icav2/production/analysis/cttsov2/20240922130c78be/"
-#                 },
-#                 None
-#             ),
-#             indent=4
-#         )
-#     )
-#
-#     # {
-#     #     "success": false,
-#     #     "message": "Workflow failed at 'FastqValidation' step"
-#     # }
-
-# # Passing workflow
-# if __name__ == "__main__":
-#     environ['ICAV2_ACCESS_TOKEN_SECRET_ID'] = "ICAv2JWTKey-umccr-prod-service-production"
-#     print(
-#         json.dumps(
-#             handler(
-#                 {
-#                     "output_uri": "s3://pipeline-prod-cache-503977275616-ap-southeast-2/byob-icav2/production/analysis/cttsov2/202409151d85b3c4/"
-#                 },
-#                 None
-#             ),
-#             indent=4
-#         )
-#     )
-#
-#     # {
-#     #     "success": true,
-#     #     "message": "Analysis completed successfully"
-#     # }
-
-# # Failed workflow
-# if __name__ == "__main__":
-#     from os import environ
-#     environ['AWS_PROFILE'] = 'umccr-development'
-#     environ['AWS_REGION'] = 'ap-southeast-2'
-#     environ['ICAV2_ACCESS_TOKEN_SECRET_ID'] = "ICAv2JWTKey-umccr-prod-service-dev"
-#     print(
-#         json.dumps(
-#             handler(
-#                 {
-#                     "outputUri": "s3://pipeline-dev-cache-503977275616-ap-southeast-2/byob-icav2/development/analysis/dragen-tso500-ctdna/20250731d69edf3b/"
-#                 },
-#                 None
-#             ),
-#             indent=4
-#         )
-#     )
-#
-#     # {
-#     #     "success": false,
-#     #     "message": "Workflow failed at 'FastqValidation' step"
-#     # }

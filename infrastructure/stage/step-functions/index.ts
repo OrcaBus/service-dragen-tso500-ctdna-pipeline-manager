@@ -17,8 +17,10 @@ import {
   DEFAULT_PAYLOAD_VERSION,
   DRAFT_STATUS,
   EVENT_SOURCE,
+  FAILED_STATUS,
   FASTQ_DECOMPRESSION_DETAIL_TYPE,
   FASTQ_SYNC_DETAIL_TYPE,
+  ICAV2_DATA_COPY_REQUEST_DETAIL_TYPE,
   ICAV2_WES_REQUEST_DETAIL_TYPE,
   READY_STATUS,
   STEP_FUNCTIONS_DIR,
@@ -27,6 +29,7 @@ import {
 } from '../constants';
 import { Construct } from 'constructs';
 import { camelCaseToSnakeCase, withStackPrefix } from '../utils';
+import { getLambdaResourceLogicalArn } from '../lambdas';
 
 function createStateMachineDefinitionSubstitutions(props: BuildStepFunctionProps): {
   [key: string]: string;
@@ -43,7 +46,7 @@ function createStateMachineDefinitionSubstitutions(props: BuildStepFunctionProps
   for (const lambdaObject of lambdaFunctions) {
     const sfnSubtitutionKey = `__${camelCaseToSnakeCase(lambdaObject.lambdaName)}_lambda_function_arn__`;
     definitionSubstitutions[sfnSubtitutionKey] =
-      lambdaObject.lambdaFunction.currentVersion.functionArn;
+      lambdaObject.lambdaFunction.latestVersion.functionArn;
   }
 
   /* Sfn Requirements */
@@ -59,7 +62,10 @@ function createStateMachineDefinitionSubstitutions(props: BuildStepFunctionProps
     definitionSubstitutions['__stack_source__'] = EVENT_SOURCE;
     definitionSubstitutions['__ready_event_status__'] = READY_STATUS;
     definitionSubstitutions['__draft_event_status__'] = DRAFT_STATUS;
+    definitionSubstitutions['__failed_event_status__'] = FAILED_STATUS;
     definitionSubstitutions['__default_payload_version__'] = DEFAULT_PAYLOAD_VERSION;
+    definitionSubstitutions['__icav2_data_copy_request_detail_type__'] =
+      ICAV2_DATA_COPY_REQUEST_DETAIL_TYPE;
     definitionSubstitutions['__fastq_decompression_request_detail_type__'] =
       FASTQ_DECOMPRESSION_DETAIL_TYPE;
   }
@@ -99,7 +105,7 @@ function createStateMachineDefinitionSubstitutions(props: BuildStepFunctionProps
   return definitionSubstitutions;
 }
 
-function wireUpStateMachinePermissions(props: WireUpPermissionsProps): void {
+function wireUpStateMachinePermissions(scope: Construct, props: WireUpPermissionsProps): void {
   /* Wire up lambda permissions */
   const sfnRequirements = stepFunctionsRequirementsMap[props.stateMachineName];
 
@@ -110,8 +116,26 @@ function wireUpStateMachinePermissions(props: WireUpPermissionsProps): void {
 
   /* Allow the state machine to invoke the lambda function */
   for (const lambdaObject of lambdaFunctions) {
-    lambdaObject.lambdaFunction.currentVersion.grantInvoke(props.sfnObject);
+    lambdaObject.lambdaFunction.grantInvoke(props.sfnObject);
   }
+
+  // Build appliesTo list: include the action plus Resource::... entries that reference the CFN logical ID tokens
+  NagSuppressions.addResourceSuppressions(
+    props.sfnObject,
+    [
+      {
+        id: 'AwsSolutions-IAM5',
+        reason: 'We need to give the state machine permissions to invoke the lambda functions',
+        appliesTo: [
+          'Action::lambda:InvokeFunction',
+          ...lambdaFunctions
+            .map((lambdaObject) => getLambdaResourceLogicalArn(lambdaObject.lambdaFunction))
+            .filter((logicalId) => logicalId !== null),
+        ],
+      },
+    ],
+    true
+  );
 
   if (sfnRequirements.needsEventPutPermission) {
     props.eventBus.grantPutEventsTo(props.sfnObject);
@@ -135,6 +159,13 @@ function wireUpStateMachinePermissions(props: WireUpPermissionsProps): void {
         {
           id: 'AwsSolutions-IAM5',
           reason: 'We need to give access to the full prefix for the SSM parameter store',
+          appliesTo: [
+            // SSM GetParameter action
+            `Action::ssm:GetParameter`,
+            // Resources - we need to give access to the full prefix since we have multiple parameters
+            // and we don't want to have to update the state machine permissions every time we add a new parameter
+            `Resource::arn:aws:ssm:<AWS::Region>:<AWS::AccountId>:parameter${path.join(props.ssmParameterPaths.ssmRootPrefix, '*')}`,
+          ],
         },
       ],
       true
@@ -154,18 +185,6 @@ function wireUpStateMachinePermissions(props: WireUpPermissionsProps): void {
         actions: ['events:PutTargets', 'events:PutRule', 'events:DescribeRule'],
       })
     );
-
-    /* Will need cdk nag suppressions for this */
-    NagSuppressions.addResourceSuppressions(
-      props.sfnObject,
-      [
-        {
-          id: 'AwsSolutions-IAM5',
-          reason: 'Need ability to put targets and rules for ECS task monitoring',
-        },
-      ],
-      true
-    );
   }
 }
 
@@ -182,7 +201,7 @@ function buildStepFunction(scope: Construct, props: BuildStepFunctionProps): Ste
   });
 
   /* Grant the state machine permissions */
-  wireUpStateMachinePermissions({
+  wireUpStateMachinePermissions(scope, {
     sfnObject: stateMachine,
     ...props,
   });
