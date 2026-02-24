@@ -33,7 +33,12 @@ class RenamingMapDict(TypedDict):
 
 def get_sample_number_from_fastq_uri(fastq_uri: str) -> int:
     try:
-        return int(re.match(r"(?:.*)?_S(\d+)_L(\d+)_R\d+_\d+.fastq.ora$", fastq_uri).group(1))
+        return int(
+            re.match(
+                r"(?:.*)?_S(\d+)_L\d+_R\d+_\d+.fastq.(?:ora|gz)$",
+                fastq_uri
+            ).group(1)
+        )
     except (AttributeError, ValueError):
         return 1  # Default to 1 if the regex fails or no match is found
 
@@ -73,7 +78,7 @@ def handler(event, context):
         if fastq_list_row_iter_['read2FileUri'] is not None:
             source_uri_list.append(fastq_list_row_iter_['read2FileUri'])
             renaming_map_list.append({
-                "sourceUri": fastq_list_row_iter_['read1FileUri'],
+                "sourceUri": fastq_list_row_iter_['read2FileUri'],
                 "outputFileName": "_".join([
                     fastq_list_row_iter_['rglb'],
                     f"S{get_sample_number_from_fastq_uri(fastq_list_row_iter_['read2FileUri'])}",

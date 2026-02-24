@@ -1164,14 +1164,19 @@ def handler(event, context):
     fastq_list_rows: List['FastqListRowDict'] = event.get("fastqListRows")
     workflow_version: str = event.get("workflowVersion")
 
-    # Check fastq_list_rows is provideds
+    # Check fastq_list_rows is provided
     if not fastq_list_rows:
         raise ValueError("fastqListRows is required")
+
+    if workflow_version is not None:
+        v3_indexes_supported = (Version(workflow_version) >= V3_INDEX_WORKFLOW_VERSION_SUPPORT)
+    else:
+        v3_indexes_supported = False
 
     # Build the new samplesheet
     samplesheet = build_samplesheet(
         fastq_list_rows=fastq_list_rows,
-        v3_indexes_supported=(Version(workflow_version) >= V3_INDEX_WORKFLOW_VERSION_SUPPORT)
+        v3_indexes_supported=v3_indexes_supported,
     )
 
     return {

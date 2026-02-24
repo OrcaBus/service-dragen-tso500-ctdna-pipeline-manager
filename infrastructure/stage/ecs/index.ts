@@ -32,7 +32,7 @@ export function buildTabixFargateTask(
 
     We use a mere 1 CPUs for this task, it is a feeble task that should probably be a lambda.
     Unfortunately it cannot be a simple python lambda due to the need for the libgomp1 library.
-    So we build it out as a fargate   ask instead. This also means that if for some reason we
+    So we build it out as a fargate task instead. This also means that if for some reason we
     need to start compressing up gVCFs, we have a task that can handle it.
     */
 
