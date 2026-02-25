@@ -1,4 +1,4 @@
-FROM debian:bookworm
+FROM public.ecr.aws/debian/debian:bookworm
 
 ARG TARGETPLATFORM
 ARG WRAPICA_VERSION="2.40.1.post20260224123747"
