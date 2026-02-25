@@ -6,6 +6,7 @@
       "Type": "Pass",
       "Next": "Note delay",
       "Assign": {
+        "detail": "{% $states.input %}",
         "workflowVersion": "{% $states.input.workflow.version %}",
         "portalRunId": "{% $states.input.portalRunId %}",
         "workflowRunName": "{% $states.input.workflowRunName %}",
@@ -279,7 +280,7 @@
                     },
                     "DetailType": "${__icav2_data_copy_request_detail_type__}",
                     "EventBusName": "${__event_bus_name__}",
-                    "Source": "${__event_source__}"
+                    "Source": "${__stack_source__}"
                   }
                 ]
               },
