@@ -6,7 +6,6 @@ set -euo pipefail
 # Globals
 LAMBDA_FUNCTION_NAME="WruDraftValidator"
 HOSTNAME=""
-LAMBDA_TMP_DIR=""
 
 # CLI Defaults
 FORCE=false  # Use --force to set to true
@@ -43,8 +42,7 @@ print_usage(){
   Print usage
   '
   local hostname
-  hostname="$(get_hostname_from_ssm)"
-  if [[ -z "${hostname}" ]]; then
+  if hostname="$(get_hostname_from_ssm 2>/dev/null)"; then
     hostname="<aws_account_prefix>.umccr.org"
   fi
 
@@ -77,15 +75,15 @@ Positional arguments:
   library_id:   One or more library IDs to link to the WorkflowRunUpdate event.
 
 Keyword arguments:
-  -h | --help               Print this help message and exit.
-  -c | --comment                                 (Required) (Required) A comment to add to the payload, which will be visible in the workflow run details in OrcaUI.
+  -h | --help                                    Print this help message and exit.
+  -c | --comment='A descriptive comment'         (Required) A comment to add to the payload, which will be visible in the workflow run details in OrcaUI.
   -f | --force                                   (Optional) Don't confirm before pushing the event to EventBridge.
   -o | --output-uri-prefix=<output_uri_prefix>   (Optional) S3 URI prefix, Outputs written to <output_uri_prefix><portal_run_id> (prefix value must end with a slash).
   -l | --logs-uri-prefix=<logs_uri_prefix>       (Optional) S3 URI prefix, Logs written to <logs_uri_prefix><portal_run_id> (prefix value must end with a slash).
   -t | --cache-uri-prefix=<cache_uri_prefix>     (Optional) S3 URI prefix, Cache data written to <cache_uri_prefix><portal_run_id> (prefix value must end with a slash).
   -p | --project-id=<project_id>                 (Optional) ICAv2 Project ID to associate with the workflow run
   --save-draft-payload=<output_file>             (Optional) Save the generated draft event to a local file <output_file> after pushing to event bridge for record purposes.
-  --workflow-versionn=<workflow_version>         (Optional) The workflow version to use, defaults to ${WORKFLOW_VERSION}
+  --workflow-version=<workflow_version>          (Optional) The workflow version to use, defaults to ${WORKFLOW_VERSION}
                                                             but can also be set to 2.6.1 or 2.6.3.
   --code-version=<code_version>                  (Optional) Set the code version to pull a particular workflow object
                                                             Required if using a workflow version other than the default.
@@ -222,8 +220,8 @@ get_hostname_from_ssm(){
   # Cache the hostname in a global variable to
   # avoid multiple calls to SSM Parameter Store
   if [[ -n "${HOSTNAME}" ]]; then
-  echo "${HOSTNAME}"
-  return
+    echo "${HOSTNAME}"
+    return
   fi
 
   # Get the hostname from SSM Parameter Store and
@@ -503,7 +501,7 @@ fi
 if [[ -n "${SAVE_DRAFT_PAYLOAD}" ]]; then
   # Check parent directory exists
   if [[ ! -d "$(dirname "${SAVE_DRAFT_PAYLOAD}")" ]]; then
-    echo_stderr "Error: The parent directory for the file path provided for --save-draft-payload '${SAVE_DRAFT_PAYLOAD}' does not exist."
+    echo_stderr "Error: The parent directory for the file path provided for --save-draft-payload '${SAVE_DRAFT_PAYLOAD}' "
     echo_stderr "       does not exist. Please provide a valid file path with an existing parent directory. Exiting."
     exit 1
   fi
@@ -680,10 +678,10 @@ if [[ -n "${SAVE_DRAFT_PAYLOAD}" ]]; then
 fi
 
 # Set the trap
+LAMBDA_TMP_DIR="$(mktemp -d "LAMBDA_TMP_DIR_XXXXXX")"
 trap 'rm -rf "${LAMBDA_TMP_DIR}"' EXIT
 
 # Push the event to EventBridge
-LAMBDA_TMP_DIR="$(mktemp -d "LAMBDA_TMP_DIR_XXXXXX")"
 LAMBDA_DATA_PIPE="${LAMBDA_TMP_DIR}/lambda_data_pipe"
 mkfifo "${LAMBDA_DATA_PIPE}"
 errors_json="$(mktemp -p "${LAMBDA_TMP_DIR}" "errors.XXXXXX.json")"
@@ -750,6 +748,8 @@ while :; do
     sleep 10
   fi
 
+  # Increment attempts
+  attempts=$((attempts + 1))
 done
 
 echo_stderr "Generating workflow comment"
