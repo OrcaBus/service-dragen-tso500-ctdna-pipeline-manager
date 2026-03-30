@@ -20,7 +20,6 @@ from typing import Dict, Tuple
 import logging
 from os import environ
 
-from orcabus_api_tools.filemanager.errors import S3FileNotFoundError
 # Wrapica imports
 from wrapica.project_data import coerce_data_id_or_uri_to_project_data_obj, get_project_data_obj_by_id
 from libica.openapi.v3 import ApiException
@@ -28,6 +27,7 @@ from wrapica.storage_configuration import get_s3_key_prefix_by_project_id
 from wrapica.project_pipelines import get_project_pipeline_obj
 
 # Layer imports
+from orcabus_api_tools.filemanager.errors import S3FileNotFoundError
 from orcabus_api_tools.workflow import add_comment_to_workflow_run, get_workflow_run
 from orcabus_api_tools.filemanager import get_s3_object_id_from_s3_uri
 
