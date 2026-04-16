@@ -42,7 +42,7 @@ print_usage(){
   Print usage
   '
   local hostname
-  if hostname="$(get_hostname_from_ssm 2>/dev/null)"; then
+  if ! hostname="$(get_hostname_from_ssm 2>/dev/null)"; then
     hostname="<aws_account_prefix>.umccr.org"
   fi
 
