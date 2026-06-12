@@ -10,10 +10,11 @@ import { buildAllEventBridgeTargets } from './event-targets';
 import { ICAV2_ACCESS_TOKEN_SECRET_ID } from '@orcabus/platform-cdk-constructs/shared-config/icav2';
 import { StageName } from '@orcabus/platform-cdk-constructs/shared-config/accounts';
 import { buildTabixFargateTask } from './ecs';
+import { GitStack } from '@orcabus/platform-cdk-constructs/deployment-stack-pipeline';
 
 export type StatelessApplicationStackProps = cdk.StackProps & StatelessApplicationStackConfig;
 
-export class StatelessApplicationStack extends cdk.Stack {
+export class StatelessApplicationStack extends GitStack {
   public stageName: StageName;
 
   constructor(scope: Construct, id: string, props: StatelessApplicationStackProps) {
