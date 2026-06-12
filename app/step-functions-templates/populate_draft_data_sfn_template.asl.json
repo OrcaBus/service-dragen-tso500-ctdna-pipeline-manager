@@ -542,7 +542,7 @@
                     },
                     "DetailType": "${__fastq_sync_detail_type__}",
                     "EventBusName": "OrcaBusMain",
-                    "Source": "orcabus.dragenwgtsdna"
+                    "Source": "orcabus.dragentso500ctdna"
                   }
                 ]
               },
