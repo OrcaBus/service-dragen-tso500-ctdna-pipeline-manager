@@ -4,7 +4,7 @@
 Given an ICAv2 project id, get the base uri for that project
 """
 # Standard imports
-from typing import Dict
+from typing import Dict, cast
 
 # Wrapica imports
 from wrapica.storage_configuration import get_s3_key_prefix_by_project_id
@@ -28,5 +28,5 @@ def handler(event, context) -> Dict[str, str]:
         raise ValueError("projectId is a required input")
 
     return {
-        "s3Uri": get_s3_key_prefix_by_project_id(project_id)
+        "s3Uri": cast(str, get_s3_key_prefix_by_project_id(project_id))
     }
