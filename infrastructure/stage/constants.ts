@@ -1,13 +1,16 @@
 /* Directory constants */
 import path from 'path';
-import { WorkflowVersionType } from './interfaces';
+import { PayloadVersionType, WorkflowVersionType } from './interfaces';
 import { DATA_SCHEMA_REGISTRY_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
-import { TEST_DATA_BUCKET } from '@orcabus/platform-cdk-constructs/shared-config/s3';
+import {
+  REFERENCE_DATA_BUCKET,
+  TEST_DATA_BUCKET,
+} from '@orcabus/platform-cdk-constructs/shared-config/s3';
 
 export const APP_ROOT = path.join(__dirname, '../../app');
 export const LAMBDA_DIR = path.join(APP_ROOT, 'lambdas');
 export const STEP_FUNCTIONS_DIR = path.join(APP_ROOT, 'step-functions-templates');
-export const EVENT_SCHEMAS_DIR = path.join(APP_ROOT, 'schemas');
+export const EVENT_SCHEMAS_DIR = path.join(APP_ROOT, 'event-schemas');
 export const ECS_DIR = path.join(APP_ROOT, 'ecs');
 
 /* Stack constants */
@@ -16,7 +19,7 @@ export const STACK_PREFIX = 'orca-dragen-tso500-ctdna';
 /* Workflow constants */
 export const WORKFLOW_NAME = 'dragen-tso500-ctdna';
 export const DEFAULT_WORKFLOW_VERSION: WorkflowVersionType = '2.6.0';
-export const DEFAULT_PAYLOAD_VERSION = '2025.07.29';
+export const DEFAULT_PAYLOAD_VERSION: PayloadVersionType = '2025.07.29';
 
 export const WORKFLOW_LOGS_PREFIX = `s3://{__CACHE_BUCKET__}/{__CACHE_PREFIX__}logs/${WORKFLOW_NAME}/`;
 export const WORKFLOW_OUTPUT_PREFIX = `s3://{__CACHE_BUCKET__}/{__CACHE_PREFIX__}analysis/${WORKFLOW_NAME}/`;
@@ -102,3 +105,4 @@ export const SSM_SCHEMA_ROOT = path.join(SSM_PARAMETER_PATH_PREFIX, 'schemas');
 
 /* Bucket constants */
 export const TEST_DATA_BUCKET_NAME = TEST_DATA_BUCKET;
+export const REFERENCE_DATA_BUCKET_NAME = REFERENCE_DATA_BUCKET;

@@ -22,3 +22,7 @@ export interface StatelessApplicationStackConfig {
 }
 
 export type WorkflowVersionType = '2.6.0' | '2.6.1';
+
+export type PayloadVersionType = '2025.07.29';
+
+export const payloadVersionList: PayloadVersionType[] = ['2025.07.29'];
