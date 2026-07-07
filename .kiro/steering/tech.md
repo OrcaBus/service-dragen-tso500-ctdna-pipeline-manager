@@ -23,7 +23,7 @@
 
 ## Package Manager
 
-**pnpm** (v11.5.3). Always use `pnpm`, never `npm` or `yarn`.
+**pnpm** (v11.10.0). Always use `pnpm`, never `npm` or `yarn`.
 
 ```sh
 corepack enable pnpm
