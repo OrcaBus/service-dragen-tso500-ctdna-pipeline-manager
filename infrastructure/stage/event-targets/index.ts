@@ -73,7 +73,7 @@ export function buildAllEventBridgeTargets(props: EventBridgeTargetsProps) {
             (eventBridgeObject) => eventBridgeObject.ruleName === 'icav2WesAnalysisStateChange'
           )?.ruleObject,
           stateMachineObj: props.stepFunctionObjects.find(
-            (sfnObject) => sfnObject.stateMachineName === 'handleIcav2AnalysisStateChangeEvent'
+            (sfnObject) => sfnObject.stateMachineName === 'icav2WesEventToWrscEvent'
           )?.sfnObject,
         });
         break;

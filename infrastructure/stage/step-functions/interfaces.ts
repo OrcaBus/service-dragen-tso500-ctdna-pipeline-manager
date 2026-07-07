@@ -1,4 +1,4 @@
-import { LambdaName, LambdaObject } from '../lambdas/interfaces';
+import { LambdaNameList, LambdaObject } from '../lambda/interfaces';
 import { IEventBus } from 'aws-cdk-lib/aws-events';
 import { StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 import { SsmParameterPaths } from '../ssm/interfaces';
@@ -8,13 +8,13 @@ export type StateMachineName =
   | 'populateDraftData'
   | 'validateDraftDataAndPutReadyEvent'
   | 'readyEventToIcav2WesRequestEvent'
-  | 'handleIcav2AnalysisStateChangeEvent';
+  | 'icav2WesEventToWrscEvent';
 
 export const stateMachineNameList: StateMachineName[] = [
   'populateDraftData',
   'validateDraftDataAndPutReadyEvent',
   'readyEventToIcav2WesRequestEvent',
-  'handleIcav2AnalysisStateChangeEvent',
+  'icav2WesEventToWrscEvent',
 ];
 
 export interface StepFunctionRequirements {
@@ -58,13 +58,13 @@ export const stepFunctionsRequirementsMap: Record<StateMachineName, StepFunction
   readyEventToIcav2WesRequestEvent: {
     needsEventPutPermission: true,
   },
-  handleIcav2AnalysisStateChangeEvent: {
+  icav2WesEventToWrscEvent: {
     needsEventPutPermission: true,
     needsTabixRunTaskPermissions: true,
   },
 };
 
-export const stepFunctionToLambdasMap: Record<StateMachineName, LambdaName[]> = {
+export const stepFunctionToLambdasMap: Record<StateMachineName, LambdaNameList[]> = {
   populateDraftData: [
     'validateDraftPayload',
     'getFastqListRgidsFromLibrary',
@@ -78,6 +78,8 @@ export const stepFunctionToLambdasMap: Record<StateMachineName, LambdaName[]> = 
     'getWorkflowRunObject',
     'comparePayload',
     'generateWruEventObjectWithMergedData',
+    'getMissingSchemaFields',
+    'addPopulateDraftComment',
   ],
   validateDraftDataAndPutReadyEvent: ['validateDraftPayload', 'postSchemaValidation'],
   readyEventToIcav2WesRequestEvent: [
@@ -91,7 +93,7 @@ export const stepFunctionToLambdasMap: Record<StateMachineName, LambdaName[]> = 
     'getInstrumentRunIdFromFastqId',
     'uploadSamplesheetToCacheDirectory',
   ],
-  handleIcav2AnalysisStateChangeEvent: [
+  icav2WesEventToWrscEvent: [
     'addWesFailureComment',
     'convertIcav2WesToWrscEvent',
     'checkSampleHasSucceeded',
