@@ -35,7 +35,7 @@ export function buildSchema(scope: Construct, props: BuildSchemaProps): schemas.
 export function buildSchemas(scope: Construct) {
   // Add an ssm entry for the registry name
   new ssm.StringParameter(scope, `${SCHEMA_REGISTRY_NAME}--ssm`, {
-    parameterName: path.join(SSM_SCHEMA_ROOT, 'registry'),
+    parameterName: path.posix.join(SSM_SCHEMA_ROOT, 'registry'),
     stringValue: SCHEMA_REGISTRY_NAME,
   });
 
@@ -49,7 +49,7 @@ export function buildSchemas(scope: Construct) {
         });
         // SSM parameter for the schema version
         new ssm.StringParameter(scope, `${schemaName}-${payloadVersion}--ssm`, {
-          parameterName: path.join(
+          parameterName: path.posix.join(
             SSM_SCHEMA_ROOT,
             camelCaseToKebabCase(schemaName),
             payloadVersion
@@ -64,7 +64,7 @@ export function buildSchemas(scope: Construct) {
         if (payloadVersion === DEFAULT_PAYLOAD_VERSION) {
           // Add an additional ssm parameter pointing to the default version
           new ssm.StringParameter(scope, `${schemaName}-default--ssm`, {
-            parameterName: path.join(SSM_SCHEMA_ROOT, camelCaseToKebabCase(schemaName), 'default'),
+            parameterName: path.posix.join(SSM_SCHEMA_ROOT, camelCaseToKebabCase(schemaName), 'default'),
             stringValue: DEFAULT_PAYLOAD_VERSION,
           });
         }

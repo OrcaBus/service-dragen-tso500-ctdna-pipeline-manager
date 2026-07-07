@@ -138,7 +138,7 @@ function wireUpStateMachinePermissions(scope: Construct, props: WireUpPermission
       new iam.PolicyStatement({
         actions: ['ssm:GetParameter'],
         resources: [
-          `arn:aws:ssm:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:parameter${path.join(props.ssmParameterPaths.ssmRootPrefix, '/*')}`,
+          `arn:aws:ssm:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:parameter${path.posix.join(props.ssmParameterPaths.ssmRootPrefix, '/*')}`,
         ],
       })
     );

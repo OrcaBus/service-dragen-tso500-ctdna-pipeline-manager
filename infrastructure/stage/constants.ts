@@ -41,35 +41,35 @@ export const WORKFLOW_VERSION_TO_DEFAULT_ICAV2_PIPELINE_ID_MAP: Record<
 };
 
 /* SSM Parameter Paths */
-export const SSM_PARAMETER_PATH_PREFIX = path.join(`/orcabus/workflows/${WORKFLOW_NAME}/`);
+export const SSM_PARAMETER_PATH_PREFIX = path.posix.join(`/orcabus/workflows/${WORKFLOW_NAME}/`);
 // Workflow Parameters
-export const SSM_PARAMETER_PATH_WORKFLOW_NAME = path.join(
+export const SSM_PARAMETER_PATH_WORKFLOW_NAME = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'workflow-name'
 );
-export const SSM_PARAMETER_PATH_DEFAULT_WORKFLOW_VERSION = path.join(
+export const SSM_PARAMETER_PATH_DEFAULT_WORKFLOW_VERSION = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'default-workflow-version'
 );
 // Engine Parameters
-export const SSM_PARAMETER_PATH_PREFIX_PIPELINE_IDS_BY_WORKFLOW_VERSION = path.join(
+export const SSM_PARAMETER_PATH_PREFIX_PIPELINE_IDS_BY_WORKFLOW_VERSION = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'pipeline-ids-by-workflow-version'
 );
-export const SSM_PARAMETER_PATH_ICAV2_PROJECT_ID = path.join(
+export const SSM_PARAMETER_PATH_ICAV2_PROJECT_ID = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'icav2-project-id'
 );
-export const SSM_PARAMETER_PATH_PAYLOAD_VERSION = path.join(
+export const SSM_PARAMETER_PATH_PAYLOAD_VERSION = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'payload-version'
 );
-export const SSM_PARAMETER_PATH_LOGS_PREFIX = path.join(SSM_PARAMETER_PATH_PREFIX, 'logs-prefix');
-export const SSM_PARAMETER_PATH_OUTPUT_PREFIX = path.join(
+export const SSM_PARAMETER_PATH_LOGS_PREFIX = path.posix.join(SSM_PARAMETER_PATH_PREFIX, 'logs-prefix');
+export const SSM_PARAMETER_PATH_OUTPUT_PREFIX = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'output-prefix'
 );
-export const SSM_PARAMETER_PATH_CACHE_PREFIX = path.join(SSM_PARAMETER_PATH_PREFIX, 'cache-prefix');
+export const SSM_PARAMETER_PATH_CACHE_PREFIX = path.posix.join(SSM_PARAMETER_PATH_PREFIX, 'cache-prefix');
 
 /* Event Constants */
 export const EVENT_BUS_NAME = 'OrcaBusMain';
@@ -101,7 +101,7 @@ export const FAILED_STATUS = 'FAILED';
 
 /* Schema constants */
 export const SCHEMA_REGISTRY_NAME = DATA_SCHEMA_REGISTRY_NAME;
-export const SSM_SCHEMA_ROOT = path.join(SSM_PARAMETER_PATH_PREFIX, 'schemas');
+export const SSM_SCHEMA_ROOT = path.posix.join(SSM_PARAMETER_PATH_PREFIX, 'schemas');
 
 /* Bucket constants */
 export const TEST_DATA_BUCKET_NAME = TEST_DATA_BUCKET;

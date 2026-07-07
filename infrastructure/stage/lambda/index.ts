@@ -66,7 +66,7 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
       new iam.PolicyStatement({
         actions: ['ssm:GetParameter'],
         resources: [
-          `arn:aws:ssm:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:parameter${path.join(SSM_SCHEMA_ROOT, '/*')}`,
+          `arn:aws:ssm:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:parameter${path.posix.join(SSM_SCHEMA_ROOT, '/*')}`,
         ],
       })
     );
@@ -93,7 +93,7 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
         actions: ['schemas:DescribeRegistry', 'schemas:DescribeSchema'],
         resources: [
           `arn:aws:schemas:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:registry/${SCHEMA_REGISTRY_NAME}`,
-          `arn:aws:schemas:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:schema/${path.join(SCHEMA_REGISTRY_NAME, '/*')}`,
+          `arn:aws:schemas:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:schema/${path.posix.join(SCHEMA_REGISTRY_NAME, '/*')}`,
         ],
       })
     );
@@ -116,10 +116,10 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
     to the REGISTRY_NAME and SCHEMA_PATH
    */
     const draftSchemaName: SchemaNames = 'completeDataDraft';
-    lambdaFunction.addEnvironment('SSM_REGISTRY_NAME', path.join(SSM_SCHEMA_ROOT, 'registry'));
+    lambdaFunction.addEnvironment('SSM_REGISTRY_NAME', path.posix.join(SSM_SCHEMA_ROOT, 'registry'));
     lambdaFunction.addEnvironment(
       'SSM_SCHEMA_PATH',
-      path.join(SSM_SCHEMA_ROOT, camelCaseToKebabCase(draftSchemaName))
+      path.posix.join(SSM_SCHEMA_ROOT, camelCaseToKebabCase(draftSchemaName))
     );
     /*
     Add DEFAULT_PAYLOAD_VERSION env var too
