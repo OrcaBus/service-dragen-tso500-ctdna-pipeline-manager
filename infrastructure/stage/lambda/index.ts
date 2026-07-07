@@ -116,7 +116,10 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
     to the REGISTRY_NAME and SCHEMA_PATH
    */
     const draftSchemaName: SchemaNames = 'completeDataDraft';
-    lambdaFunction.addEnvironment('SSM_REGISTRY_NAME', path.posix.join(SSM_SCHEMA_ROOT, 'registry'));
+    lambdaFunction.addEnvironment(
+      'SSM_REGISTRY_NAME',
+      path.posix.join(SSM_SCHEMA_ROOT, 'registry')
+    );
     lambdaFunction.addEnvironment(
       'SSM_SCHEMA_PATH',
       path.posix.join(SSM_SCHEMA_ROOT, camelCaseToKebabCase(draftSchemaName))

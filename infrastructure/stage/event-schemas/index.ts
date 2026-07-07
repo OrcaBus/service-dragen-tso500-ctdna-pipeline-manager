@@ -64,7 +64,11 @@ export function buildSchemas(scope: Construct) {
         if (payloadVersion === DEFAULT_PAYLOAD_VERSION) {
           // Add an additional ssm parameter pointing to the default version
           new ssm.StringParameter(scope, `${schemaName}-default--ssm`, {
-            parameterName: path.posix.join(SSM_SCHEMA_ROOT, camelCaseToKebabCase(schemaName), 'default'),
+            parameterName: path.posix.join(
+              SSM_SCHEMA_ROOT,
+              camelCaseToKebabCase(schemaName),
+              'default'
+            ),
             stringValue: DEFAULT_PAYLOAD_VERSION,
           });
         }

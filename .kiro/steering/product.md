@@ -4,8 +4,8 @@
 
 This is an OrcaBus microservice that manages the lifecycle of the **Dragen TSO500 ctDNA pipeline** — Illumina's DRAGEN-based targeted sequencing pipeline for circulating tumour DNA (ctDNA) analysis using the TSO500 panel on ICAv2.
 
-The service handles orchestration on ICAv2 (Illumina Connected Analytics v2) via nextflow workflows. 
-It follows the standard ICAv2-centric Pipeline Architecture used across OrcaBus. 
+The service handles orchestration on ICAv2 (Illumina Connected Analytics v2) via nextflow workflows.
+It follows the standard ICAv2-centric Pipeline Architecture used across OrcaBus.
 This is a non-downstream (top-level) service — it has no upstream pipeline dependencies and is triggered directly by analysis events.
 
 ## Core Responsibilities

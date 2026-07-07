@@ -64,12 +64,18 @@ export const SSM_PARAMETER_PATH_PAYLOAD_VERSION = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'payload-version'
 );
-export const SSM_PARAMETER_PATH_LOGS_PREFIX = path.posix.join(SSM_PARAMETER_PATH_PREFIX, 'logs-prefix');
+export const SSM_PARAMETER_PATH_LOGS_PREFIX = path.posix.join(
+  SSM_PARAMETER_PATH_PREFIX,
+  'logs-prefix'
+);
 export const SSM_PARAMETER_PATH_OUTPUT_PREFIX = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'output-prefix'
 );
-export const SSM_PARAMETER_PATH_CACHE_PREFIX = path.posix.join(SSM_PARAMETER_PATH_PREFIX, 'cache-prefix');
+export const SSM_PARAMETER_PATH_CACHE_PREFIX = path.posix.join(
+  SSM_PARAMETER_PATH_PREFIX,
+  'cache-prefix'
+);
 
 /* Event Constants */
 export const EVENT_BUS_NAME = 'OrcaBusMain';
