@@ -1,13 +1,16 @@
 /* Directory constants */
 import path from 'path';
-import { WorkflowVersionType } from './interfaces';
+import { PayloadVersionType, WorkflowVersionType } from './interfaces';
 import { DATA_SCHEMA_REGISTRY_NAME } from '@orcabus/platform-cdk-constructs/shared-config/event-bridge';
-import { TEST_DATA_BUCKET } from '@orcabus/platform-cdk-constructs/shared-config/s3';
+import {
+  REFERENCE_DATA_BUCKET,
+  TEST_DATA_BUCKET,
+} from '@orcabus/platform-cdk-constructs/shared-config/s3';
 
 export const APP_ROOT = path.join(__dirname, '../../app');
 export const LAMBDA_DIR = path.join(APP_ROOT, 'lambdas');
 export const STEP_FUNCTIONS_DIR = path.join(APP_ROOT, 'step-functions-templates');
-export const EVENT_SCHEMAS_DIR = path.join(APP_ROOT, 'schemas');
+export const EVENT_SCHEMAS_DIR = path.join(APP_ROOT, 'event-schemas');
 export const ECS_DIR = path.join(APP_ROOT, 'ecs');
 
 /* Stack constants */
@@ -16,7 +19,7 @@ export const STACK_PREFIX = 'orca-dragen-tso500-ctdna';
 /* Workflow constants */
 export const WORKFLOW_NAME = 'dragen-tso500-ctdna';
 export const DEFAULT_WORKFLOW_VERSION: WorkflowVersionType = '2.6.0';
-export const DEFAULT_PAYLOAD_VERSION = '2025.07.29';
+export const DEFAULT_PAYLOAD_VERSION: PayloadVersionType = '2025.07.29';
 
 export const WORKFLOW_LOGS_PREFIX = `s3://{__CACHE_BUCKET__}/{__CACHE_PREFIX__}logs/${WORKFLOW_NAME}/`;
 export const WORKFLOW_OUTPUT_PREFIX = `s3://{__CACHE_BUCKET__}/{__CACHE_PREFIX__}analysis/${WORKFLOW_NAME}/`;
@@ -38,35 +41,41 @@ export const WORKFLOW_VERSION_TO_DEFAULT_ICAV2_PIPELINE_ID_MAP: Record<
 };
 
 /* SSM Parameter Paths */
-export const SSM_PARAMETER_PATH_PREFIX = path.join(`/orcabus/workflows/${WORKFLOW_NAME}/`);
+export const SSM_PARAMETER_PATH_PREFIX = path.posix.join(`/orcabus/workflows/${WORKFLOW_NAME}/`);
 // Workflow Parameters
-export const SSM_PARAMETER_PATH_WORKFLOW_NAME = path.join(
+export const SSM_PARAMETER_PATH_WORKFLOW_NAME = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'workflow-name'
 );
-export const SSM_PARAMETER_PATH_DEFAULT_WORKFLOW_VERSION = path.join(
+export const SSM_PARAMETER_PATH_DEFAULT_WORKFLOW_VERSION = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'default-workflow-version'
 );
 // Engine Parameters
-export const SSM_PARAMETER_PATH_PREFIX_PIPELINE_IDS_BY_WORKFLOW_VERSION = path.join(
+export const SSM_PARAMETER_PATH_PREFIX_PIPELINE_IDS_BY_WORKFLOW_VERSION = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'pipeline-ids-by-workflow-version'
 );
-export const SSM_PARAMETER_PATH_ICAV2_PROJECT_ID = path.join(
+export const SSM_PARAMETER_PATH_ICAV2_PROJECT_ID = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'icav2-project-id'
 );
-export const SSM_PARAMETER_PATH_PAYLOAD_VERSION = path.join(
+export const SSM_PARAMETER_PATH_PAYLOAD_VERSION = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'payload-version'
 );
-export const SSM_PARAMETER_PATH_LOGS_PREFIX = path.join(SSM_PARAMETER_PATH_PREFIX, 'logs-prefix');
-export const SSM_PARAMETER_PATH_OUTPUT_PREFIX = path.join(
+export const SSM_PARAMETER_PATH_LOGS_PREFIX = path.posix.join(
+  SSM_PARAMETER_PATH_PREFIX,
+  'logs-prefix'
+);
+export const SSM_PARAMETER_PATH_OUTPUT_PREFIX = path.posix.join(
   SSM_PARAMETER_PATH_PREFIX,
   'output-prefix'
 );
-export const SSM_PARAMETER_PATH_CACHE_PREFIX = path.join(SSM_PARAMETER_PATH_PREFIX, 'cache-prefix');
+export const SSM_PARAMETER_PATH_CACHE_PREFIX = path.posix.join(
+  SSM_PARAMETER_PATH_PREFIX,
+  'cache-prefix'
+);
 
 /* Event Constants */
 export const EVENT_BUS_NAME = 'OrcaBusMain';
@@ -98,7 +107,8 @@ export const FAILED_STATUS = 'FAILED';
 
 /* Schema constants */
 export const SCHEMA_REGISTRY_NAME = DATA_SCHEMA_REGISTRY_NAME;
-export const SSM_SCHEMA_ROOT = path.join(SSM_PARAMETER_PATH_PREFIX, 'schemas');
+export const SSM_SCHEMA_ROOT = path.posix.join(SSM_PARAMETER_PATH_PREFIX, 'schemas');
 
 /* Bucket constants */
 export const TEST_DATA_BUCKET_NAME = TEST_DATA_BUCKET;
+export const REFERENCE_DATA_BUCKET_NAME = REFERENCE_DATA_BUCKET;

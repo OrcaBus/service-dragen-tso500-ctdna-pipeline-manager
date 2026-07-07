@@ -48,7 +48,10 @@ export function buildSsmParameters(scope: Construct, props: BuildSsmParameterPro
     props.ssmParameterValues.pipelineIdsByWorkflowVersionMap
   )) {
     new ssm.StringParameter(scope, `pipeline-id-${key}`, {
-      parameterName: path.join(props.ssmParameterPaths.prefixPipelineIdsByWorkflowVersion, key),
+      parameterName: path.posix.join(
+        props.ssmParameterPaths.prefixPipelineIdsByWorkflowVersion,
+        key
+      ),
       stringValue: value,
     });
   }

@@ -3,7 +3,7 @@ import { Construct } from 'constructs';
 import { StatelessApplicationStackConfig } from './interfaces';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as secretsManager from 'aws-cdk-lib/aws-secretsmanager';
-import { buildAllLambdas } from './lambdas';
+import { buildAllLambdas } from './lambda';
 import { buildAllStepFunctions } from './step-functions';
 import { buildAllEventRules } from './event-rules';
 import { buildAllEventBridgeTargets } from './event-targets';

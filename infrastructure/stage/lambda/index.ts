@@ -1,12 +1,16 @@
-import { LambdaInput, lambdaNamesList, LambdaObject, lambdaRequirementsMap } from './interfaces';
+import { LambdaInput, lambdaNameList, LambdaObject, lambdaRequirementsMap } from './interfaces';
 import { PythonUvFunction } from '@orcabus/platform-cdk-constructs/lambda';
 import {
   LAMBDA_DIR,
   SCHEMA_REGISTRY_NAME,
   SSM_SCHEMA_ROOT,
+  REFERENCE_DATA_BUCKET_NAME,
   TEST_DATA_BUCKET_NAME,
   WORKFLOW_NAME,
+  DEFAULT_WORKFLOW_VERSION,
+  DEFAULT_PAYLOAD_VERSION,
 } from '../constants';
+import { REPO_NAME } from '../../toolchain/constants';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Duration } from 'aws-cdk-lib';
 import { NagSuppressions } from 'cdk-nag';
@@ -29,18 +33,26 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
     index: lambdaNameToSnakeCase + '.py',
     handler: 'handler',
     timeout: Duration.seconds(60),
-    memorySize: 2048,
-    includeOrcabusApiToolsLayer: lambdaRequirements.needsOrcabusApiToolsLayer,
-    includeIcav2Layer: lambdaRequirements.needsIcav2ToolsLayer,
+    memorySize:
+      lambdaRequirements.needsIcav2Tools || lambdaRequirements.needsHigherMemory ? 1024 : 512,
+    includeOrcabusApiToolsLayer: lambdaRequirements.needsOrcabusApiTools,
+    includeIcav2Layer: lambdaRequirements.needsIcav2Tools,
   });
 
-  // AwsSolutions-IAM4 - We need to add this for the lambda to work
+  // AwsSolutions-L1 - Python 3.14 is not yet in the cdk-nag approved list but is our target runtime
+  // AwsSolutions-IAM4 - Basic execution role provides CloudWatch Logs permissions needed by all Lambdas
   NagSuppressions.addResourceSuppressions(
     lambdaFunction,
     [
       {
+        id: 'AwsSolutions-L1',
+        reason:
+          'Python 3.14 is not yet in the cdk-nag approved list but is our target runtime for ARM64 Lambda functions',
+      },
+      {
         id: 'AwsSolutions-IAM4',
-        reason: 'We need to add this for the lambda to work',
+        reason:
+          'Basic execution managed policy provides CloudWatch Logs permissions required by all Lambda functions',
       },
     ],
     true
@@ -54,9 +66,20 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
       new iam.PolicyStatement({
         actions: ['ssm:GetParameter'],
         resources: [
-          `arn:aws:ssm:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:parameter${path.join(SSM_SCHEMA_ROOT, '/*')}`,
+          `arn:aws:ssm:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:parameter${path.posix.join(SSM_SCHEMA_ROOT, '/*')}`,
         ],
       })
+    );
+    NagSuppressions.addResourceSuppressions(
+      lambdaFunction,
+      [
+        {
+          id: 'AwsSolutions-IAM5',
+          reason:
+            'Wildcard covers SSM parameters under the schema root path; specific parameter names include schema versions determined at runtime',
+        },
+      ],
+      true
     );
   }
 
@@ -70,23 +93,41 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
         actions: ['schemas:DescribeRegistry', 'schemas:DescribeSchema'],
         resources: [
           `arn:aws:schemas:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:registry/${SCHEMA_REGISTRY_NAME}`,
-          `arn:aws:schemas:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:schema/${path.join(SCHEMA_REGISTRY_NAME, '/*')}`,
+          `arn:aws:schemas:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:schema/${path.posix.join(SCHEMA_REGISTRY_NAME, '/*')}`,
         ],
       })
     );
 
-    /* Since we dont ask which schema, we give the lambda access to all schemas in the registry */
-    /* As such we need to add the wildcard to the resource */
     NagSuppressions.addResourceSuppressions(
       lambdaFunction,
       [
         {
           id: 'AwsSolutions-IAM5',
-          reason: 'We need to give the lambda access to all schemas in the registry',
+          reason:
+            'Wildcard covers all schema versions in the registry; individual schema ARNs cannot be enumerated at deploy time because versions are created dynamically',
         },
       ],
       true
     );
+
+    /*
+    Special if the lambdaName is 'validateDraftPayload',
+    we need to add in the ssm parameters
+    to the REGISTRY_NAME and SCHEMA_PATH
+   */
+    const draftSchemaName: SchemaNames = 'completeDataDraft';
+    lambdaFunction.addEnvironment(
+      'SSM_REGISTRY_NAME',
+      path.posix.join(SSM_SCHEMA_ROOT, 'registry')
+    );
+    lambdaFunction.addEnvironment(
+      'SSM_SCHEMA_PATH',
+      path.posix.join(SSM_SCHEMA_ROOT, camelCaseToKebabCase(draftSchemaName))
+    );
+    /*
+    Add DEFAULT_PAYLOAD_VERSION env var too
+    */
+    lambdaFunction.addEnvironment('DEFAULT_PAYLOAD_VERSION', DEFAULT_PAYLOAD_VERSION);
   }
 
   /*
@@ -95,25 +136,24 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
   */
   if (lambdaRequirements.needsExternalBucketInfo) {
     lambdaFunction.addEnvironment('TEST_DATA_BUCKET_NAME', TEST_DATA_BUCKET_NAME);
+    lambdaFunction.addEnvironment('REF_DATA_BUCKET_NAME', REFERENCE_DATA_BUCKET_NAME);
   }
 
   /*
-    Needs workflow name environment variable
-  */
-  if (lambdaRequirements.needsWorkflowNameEnvVar) {
-    lambdaFunction.addEnvironment('WORKFLOW_NAME', WORKFLOW_NAME);
-  }
-
-  /*
-    Special if the lambdaName is 'validateDraftCompleteSchema', we need to add in the ssm parameters
-    to the REGISTRY_NAME and SCHEMA_NAME
+  Workflow info, usually for comment generation on the workflow run in the OrcaUI
    */
-  if (props.lambdaName === 'validateDraftPayload') {
-    const draftSchemaName: SchemaNames = 'completeDataDraft';
-    lambdaFunction.addEnvironment('SSM_REGISTRY_NAME', path.join(SSM_SCHEMA_ROOT, 'registry'));
+  if (lambdaRequirements.needsWorkflowInfo) {
+    lambdaFunction.addEnvironment('WORKFLOW_NAME', WORKFLOW_NAME);
+    lambdaFunction.addEnvironment('WORKFLOW_VERSION', DEFAULT_WORKFLOW_VERSION);
+  }
+
+  /*
+  Repository GitHub URL, used in user-facing comments to link to the README
+   */
+  if (lambdaRequirements.needsRepoUrl) {
     lambdaFunction.addEnvironment(
-      'SSM_SCHEMA_NAME',
-      path.join(SSM_SCHEMA_ROOT, camelCaseToKebabCase(draftSchemaName), 'latest')
+      'REPOSITORY_GITHUB_URL',
+      `https://github.com/OrcaBus/${REPO_NAME}`
     );
   }
 
@@ -125,9 +165,9 @@ function buildLambda(scope: Construct, props: LambdaInput): LambdaObject {
 }
 
 export function buildAllLambdas(scope: Construct): LambdaObject[] {
-  // Iterate over lambdaLayerToMapping and create the lambda functions
+  // Iterate over lambdaNameList and create the lambda functions
   const lambdaObjects: LambdaObject[] = [];
-  for (const lambdaName of lambdaNamesList) {
+  for (const lambdaName of lambdaNameList) {
     lambdaObjects.push(
       buildLambda(scope, {
         lambdaName: lambdaName,
@@ -136,19 +176,4 @@ export function buildAllLambdas(scope: Construct): LambdaObject[] {
   }
 
   return lambdaObjects;
-}
-
-export function getLambdaResourceLogicalArn(lambdaFunction: lambda.Function): string | null {
-  // Find L1 CloudFormation CfnFunction resource(s) under the L2 Function (exclude Alias/Version L1s)
-  const cfnFunctions = lambdaFunction.node
-    .findAll()
-    .filter((n) => n instanceof lambda.CfnFunction) as lambda.CfnFunction[];
-
-  // Use the first CfnFunction's logical ID
-  if (cfnFunctions.length > 0) {
-    const logicalId = cdk.Stack.of(lambdaFunction).getLogicalId(cfnFunctions[0]);
-    return `Resource::<${logicalId}.Arn>:*`;
-  }
-
-  return null;
 }
