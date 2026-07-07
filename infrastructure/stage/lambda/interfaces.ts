@@ -1,6 +1,9 @@
 import { PythonUvFunction } from '@orcabus/platform-cdk-constructs/lambda';
 
-export type LambdaName =
+/**
+ * Lambda function interface.
+ */
+export type LambdaNameList =
   // Pre-Draft Complete lambda functions
   | 'getLibraries'
   | 'getMetadataTags'
@@ -11,11 +14,14 @@ export type LambdaName =
   | 'checkNtsmInternalPassing'
   | 'comparePayload'
   | 'generateWruEventObjectWithMergedData'
+  | 'getMissingSchemaFields'
   | 'getWorkflowRunObject'
   | 'getQcSummaryStatsFromRgidList'
   // Validation functions
   | 'validateDraftPayload'
   | 'postSchemaValidation'
+  // Commentary Functions
+  | 'addPopulateDraftComment'
   // Ready-to-ICAv2 WES Request lambda functions
   | 'addReadyDelayComment'
   | 'addUploadFailureComment'
@@ -34,7 +40,7 @@ export type LambdaName =
   | 'addPortalRunIdAttributes'
   | 'syncFilemanager';
 
-export const lambdaNamesList: LambdaName[] = [
+export const lambdaNameList: LambdaNameList[] = [
   // Pre-Draft Complete lambda functions
   'getLibraries',
   'getMetadataTags',
@@ -45,11 +51,14 @@ export const lambdaNamesList: LambdaName[] = [
   'checkNtsmInternalPassing',
   'comparePayload',
   'generateWruEventObjectWithMergedData',
+  'getMissingSchemaFields',
   'getWorkflowRunObject',
   'getQcSummaryStatsFromRgidList',
   // Validation functions
   'validateDraftPayload',
   'postSchemaValidation',
+  // Commentary Functions
+  'addPopulateDraftComment',
   // Ready-to-ICAv2 WES Request lambda functions
   'addReadyDelayComment',
   'addUploadFailureComment',
@@ -69,119 +78,132 @@ export const lambdaNamesList: LambdaName[] = [
   'syncFilemanager',
 ];
 
+// Requirements interface for Lambda functions
 export interface LambdaRequirements {
-  needsOrcabusApiToolsLayer?: boolean;
-  needsIcav2ToolsLayer?: boolean;
-  needsSchemaRegistryAccess?: boolean;
+  needsOrcabusApiTools?: boolean;
+  needsIcav2Tools?: boolean;
+  needsHigherMemory?: boolean;
   needsSsmParametersAccess?: boolean;
+  needsSchemaRegistryAccess?: boolean;
   needsExternalBucketInfo?: boolean;
-  needsWorkflowNameEnvVar?: boolean;
+  needsWorkflowInfo?: boolean;
+  needsRepoUrl?: boolean;
 }
 
 // Lambda requirements mapping
-export const lambdaRequirementsMap: Record<LambdaName, LambdaRequirements> = {
+export const lambdaRequirementsMap: Record<LambdaNameList, LambdaRequirements> = {
   // Pre-Draft Complete lambda functions
   getLibraries: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   getMetadataTags: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   getProjectBaseUriFromProjectId: {
-    needsIcav2ToolsLayer: true,
-    needsOrcabusApiToolsLayer: true,
+    needsIcav2Tools: true,
+    needsOrcabusApiTools: true,
   },
   getFastqIdListFromFastqRgidList: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   getFastqListRgidsFromLibrary: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   getFastqListRowsFromFastqRgidList: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
     needsExternalBucketInfo: true,
   },
   checkNtsmInternalPassing: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   comparePayload: {},
   generateWruEventObjectWithMergedData: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
+  },
+  getMissingSchemaFields: {
+    needsSchemaRegistryAccess: true,
+    needsSsmParametersAccess: true,
   },
   getWorkflowRunObject: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   getQcSummaryStatsFromRgidList: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   // Validation functions
   validateDraftPayload: {
     needsSchemaRegistryAccess: true,
     needsSsmParametersAccess: true,
-    needsWorkflowNameEnvVar: true,
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
+    needsWorkflowInfo: true,
   },
   postSchemaValidation: {
-    needsIcav2ToolsLayer: true,
-    needsOrcabusApiToolsLayer: true,
+    needsIcav2Tools: true,
+    needsOrcabusApiTools: true,
     needsExternalBucketInfo: true,
-    needsWorkflowNameEnvVar: true,
+    needsWorkflowInfo: true,
+  },
+  // Commentary Functions
+  addPopulateDraftComment: {
+    needsOrcabusApiTools: true,
+    needsWorkflowInfo: true,
+    needsRepoUrl: true,
   },
   // Ready-to-ICAv2 WES Request lambda functions
   addReadyDelayComment: {
-    needsOrcabusApiToolsLayer: true,
-    needsWorkflowNameEnvVar: true,
+    needsOrcabusApiTools: true,
+    needsWorkflowInfo: true,
   },
   addUploadFailureComment: {
-    needsOrcabusApiToolsLayer: true,
-    needsWorkflowNameEnvVar: true,
+    needsOrcabusApiTools: true,
+    needsWorkflowInfo: true,
   },
   determineCompressionType: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   generateFastqUriByFastqIdMap: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   generateIcav2DataCopyPayload: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   getInstrumentRunIdFromFastqId: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   generateMinimalSamplesheetFromFastqIdList: {
-    needsIcav2ToolsLayer: true,
+    needsIcav2Tools: true,
   },
   uploadSamplesheetToCacheDirectory: {
-    needsIcav2ToolsLayer: true,
+    needsIcav2Tools: true,
   },
   // Post submission
   addWesFailureComment: {
-    needsOrcabusApiToolsLayer: true,
-    needsWorkflowNameEnvVar: true,
+    needsOrcabusApiTools: true,
+    needsWorkflowInfo: true,
   },
   convertIcav2WesToWrscEvent: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   checkSampleHasSucceeded: {
-    needsIcav2ToolsLayer: true,
+    needsIcav2Tools: true,
   },
   deleteCacheUri: {
-    needsIcav2ToolsLayer: true,
+    needsIcav2Tools: true,
   },
   findVcfFiles: {
-    needsIcav2ToolsLayer: true,
+    needsIcav2Tools: true,
   },
   addPortalRunIdAttributes: {
-    needsOrcabusApiToolsLayer: true,
+    needsOrcabusApiTools: true,
   },
   syncFilemanager: {
-    needsOrcabusApiToolsLayer: true,
-    needsIcav2ToolsLayer: true,
+    needsOrcabusApiTools: true,
+    needsIcav2Tools: true,
   },
 };
 
 export interface LambdaInput {
-  lambdaName: LambdaName;
+  lambdaName: LambdaNameList;
 }
 
 export interface LambdaObject extends LambdaInput {
