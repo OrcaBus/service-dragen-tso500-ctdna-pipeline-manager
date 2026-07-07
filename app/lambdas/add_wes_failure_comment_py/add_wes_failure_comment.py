@@ -14,44 +14,47 @@ from orcabus_api_tools.workflow import (
 
 # Globals
 WORKFLOW_NAME_ENV_VAR = "WORKFLOW_NAME"
-COMMENT_AUTHOR = "{WORKFLOW_NAME}-workflow-service"
+COMMENT_AUTHOR = "{WORKFLOW_NAME}-icav2-wes-event-service"
+MAX_COMMENT_LENGTH = 1024
+TRUNCATION_SUFFIX = "\n... [truncated, see execution ARN for full detail]"
 
 
 def handler(event, context):
     """
     Add a comment to the ICA analysis indicating failure.
 
+    Event shape:
+    {
+        "errorType": "<error-type>",
+        "errorMessageUri": "<uri-to-error-log>",
+        "portalRunId": "<portal-run-id>",
+        "executionArn": "<step-functions-execution-arn>"
+    }
     """
 
     # Collect inputs
     error_type = event.get("errorType")
     error_message_uri = event.get("errorMessageUri")
     portal_run_id = event.get("portalRunId")
-
-    # Ensure error type is provided
-    if error_type is None:
-        raise ValueError("errorType must be provided in the event")
-
-    # Ensure portal run id is provided
-    if portal_run_id is None:
-        raise ValueError("portalRunId must be provided in the event")
+    execution_arn = event.get("executionArn", "")
 
     # Get the workflow run id from the portal run id
     workflow_run_id = get_workflow_run_from_portal_run_id(portal_run_id)["orcabusId"]
 
-    # If error message uri is not none, set comment to include message uri
-    if error_message_uri is not None:
-        comment = (
-            f"The workflow has failed with error type '{error_type}', "
-            f"full traceback can be found at '{error_message_uri}'"
-        )
-    else:
-        comment = f"The workflow has failed with error type '{error_type}'. No error message uri provided."
+    # Construct the comment body
+    body = f"The workflow has failed with error type '{error_type}', full traceback can be found at '{error_message_uri}'"
+    footer = f"---\nStep Functions Execution: {execution_arn}"
+    full_comment = f"{body}\n{footer}"
+
+    # Enforce 1024 char limit
+    if len(full_comment) > MAX_COMMENT_LENGTH:
+        available = MAX_COMMENT_LENGTH - len(footer) - len(TRUNCATION_SUFFIX) - 1
+        full_comment = f"{body[:available]}{TRUNCATION_SUFFIX}\n{footer}"
 
     # Construct the comment
     add_comment_to_workflow_run(
         workflow_run_orcabus_id=workflow_run_id,
-        comment=comment,
+        comment=full_comment,
         author=COMMENT_AUTHOR.format(
             WORKFLOW_NAME=environ.get(WORKFLOW_NAME_ENV_VAR)
         )
