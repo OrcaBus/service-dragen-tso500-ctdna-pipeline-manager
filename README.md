@@ -242,13 +242,13 @@ All changes merged to `main` are automatically built and deployed to `beta` and 
 
 ## SOPs
 
-| SOP | Description |
-|---|---|
-| [PM.DTC.1](docs/operation/SOP/PM.DTC.1/PM.DTC.1-ManualPipelineExecution.md) | Manually kick off a reanalysis |
-| [PM.DTC.2](docs/operation/SOP/PM.DTC.2/PM.DTC.2-NewPipelineDeployment.md) | Install and deploy a new pipeline version |
+| SOP                                                                            | Description |
+|--------------------------------------------------------------------------------|---|
+| [PM.DTC.1](docs/operation/SOP/PM.DTC.1/PM.DTC.1-ManualPipelineExecution.md)    | Manually kick off a reanalysis |
+| [PM.DTC.2](docs/operation/SOP/PM.DTC.2/PM.DTC.2-NewPipelineDeployment.md)      | Install and deploy a new pipeline version |
 | [PM.DTC.3](docs/operation/SOP/PM.DTC.3/PM.DTC.3-UpdatingPipelineParameters.md) | Update SSM parameters |
 | [PM.DTC.4](docs/operation/SOP/PM.DTC.4/PM.DTC.4-RunningWorkflowValidations.md) | Run workflow validations |
-| [PM.DTC.5](docs/operation/SOP/PM.DTC.5/PM.DTC.5-TroubleShooting.md) | Troubleshoot common issues |
+| [PM.DTC.5](docs/operation/SOP/PM.DTC.5/PM.DTC.5-Troubleshooting.md)            | Troubleshoot common issues |
 
 ---
 
