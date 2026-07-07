@@ -65,7 +65,7 @@ When a `WorkflowRunStateChange` DRAFT event arrives, this state machine populate
 Triggered when a DRAFT `WorkflowRunStateChange` event is received with a fully populated payload:
 
 1. **Schema validation** — invokes `validate_draft_complete_schema` Lambda against the registered schema.
-2. **Post-schema validation** — invokes `post_schema_validation` Lambda for business-rule checks. On failure, writes a comment to the 
+2. **Post-schema validation** — invokes `post_schema_validation` Lambda for business-rule checks. On failure, writes a comment to the
 3. **Push READY event** — emits a `WorkflowRunStateChange` READY event to the `OrcaBusMain` EventBridge bus.
 
 ### 3. READY → ICAv2 submission
