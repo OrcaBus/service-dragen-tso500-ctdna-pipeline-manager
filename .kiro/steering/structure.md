@@ -20,14 +20,16 @@
 
 ```
 app/
-├── ecs/                        # ECS task definitions
-│   └── tabix/                  # Tabix operations for VCF indexing
-├── lambdas/                    # Python Lambda functions
-│   └── <function_name>_py/    # One directory per Lambda, snake_case + _py suffix
-│       ├── <function_name>.py  # Handler file; must export handler(event, context)
-│       └── requirements.txt    # (optional) extra pip deps, handled by uv
-├── schemas/                    # JSON schemas for event validation
-│   └── complete-data-draft-schema.json
+├── ecs/                         # ECS task definitions
+│   └── tabix/                   # Tabix operations for VCF indexing
+├── lambda/                      # Python Lambda functions
+│   └── <function_name>_py/      # One directory per Lambda, snake_case + _py suffix
+│       ├── <function_name>.py   # Handler file; must export handler(event, context)
+│       └── requirements.txt     # (optional) extra pip deps, handled by uv
+├── event-schemas/               # Versioned JSON schemas for event validation
+│   └── complete-data-draft/     # <schema-name>/<payloadVersion>/...
+│       └── 2025.07.29/
+│           └── complete-data-draft-schema.json
 └── step-functions-templates/   # ASL JSON Step Functions definitions
     ├── icav2_wes_event_to_wrsc_event_sfn_template.asl.json
     ├── populate_draft_data_sfn_template.asl.json

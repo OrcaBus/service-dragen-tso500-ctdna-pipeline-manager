@@ -114,7 +114,7 @@ Listens for `Icav2WesAnalysisStateChange` events and converts them into `Workflo
 
 ## Draft Event Payload
 
-A DRAFT event can be submitted with a minimal `data` payload — the populate state machine resolves all defaults. The `data` object may be omitted entirely. The final validated payload must satisfy the [complete-data draft schema](app/schemas/complete-data-draft-schema.json).
+A DRAFT event can be submitted with a minimal `data` payload — the populate state machine resolves all defaults. The `data` object may be omitted entirely. The final validated payload must satisfy the [complete-data draft schema](app/event-schemas/complete-data-draft/2025.07.29/complete-data-draft-schema.json).
 
 ### Minimal DRAFT event detail
 
