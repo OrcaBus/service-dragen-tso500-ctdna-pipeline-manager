@@ -43,7 +43,7 @@ You may wish to then 'redrive' the execution from the console.
 ### Payload Mismatch
 
 If you can find the most recent step function execution for this library ID, look at the Log Group for the
-`validate_draft_complete_schema` lambda to see how the payload violates the expected schema.
+`validate_draft_payload` lambda to see how the payload violates the expected schema.
 
 You may wish to then manually update the payload and generate a new WorkflowRunUpdate draft event as discussed in [PM.DTC.1][sop_1_rel_path].
 
