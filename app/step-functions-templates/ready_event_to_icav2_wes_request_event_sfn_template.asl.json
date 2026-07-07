@@ -22,7 +22,8 @@
       "Arguments": {
         "FunctionName": "${__add_ready_delay_comment_lambda_function_arn__}",
         "Payload": {
-          "portalRunId": "{% $portalRunId %}"
+          "portalRunId": "{% $portalRunId %}",
+          "executionArn": "{% $states.context.Execution.Id %}"
         }
       },
       "Retry": [
@@ -327,7 +328,7 @@
         "FunctionName": "${__add_upload_failure_comment_lambda_function_arn__}",
         "Payload": {
           "errorType": "Inputs Creation Failure",
-          "stepsExecutionId": "{% $states.context.Execution.Id %}",
+          "executionArn": "{% $states.context.Execution.Id %}",
           "portalRunId": "{% $portalRunId %}"
         }
       },

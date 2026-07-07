@@ -394,12 +394,83 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Next": "Generate WRU event",
+          "Next": "Add change comment",
           "Condition": "{% ( ( $data.tags ? $data.tags : {} ) = $tags ~> $not ) or\n( ( $data.engineParameters ? $data.engineParameters : {} ) = $engineParameters ~> $not ) %}",
           "Comment": "Tags or engine parameters have changed"
         }
       ],
-      "Default": "Get libraries with readsets"
+      "Default": "Add updating inputs comment"
+    },
+    "Add change comment": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${__add_populate_draft_comment_lambda_function_arn__}",
+        "Payload": {
+          "workflowRunId": "{% $detail.orcabusId %}",
+          "commentType": "{% ( $tagsChanged := ( ( $data.tags ? $data.tags : {} ) = $tags ~> $not ); $engineParametersChanged := ( ( $data.engineParameters ? $data.engineParameters : {} ) = $engineParameters ~> $not ); $tagsChanged and $engineParametersChanged ? 'both_changed' : $tagsChanged ? 'tags_changed' : 'engine_parameters_changed' ) %}",
+          "executionArn": "{% $states.context.Execution.Id %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Put DRAFT update event",
+      "Output": "{% $states.input %}"
+    },
+    "Add updating inputs comment": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${__add_populate_draft_comment_lambda_function_arn__}",
+        "Payload": {
+          "workflowRunId": "{% $detail.orcabusId %}",
+          "commentType": "updating_inputs",
+          "executionArn": "{% $states.context.Execution.Id %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Get libraries with readsets",
+      "Output": "{% $states.input %}"
+    },
+    "Put DRAFT update event": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::events:putEvents",
+      "Arguments": {
+        "Entries": [
+          {
+            "Detail": "{% $merge([\n  $detail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $payload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n])\n %}",
+            "DetailType": "${__workflow_run_update_event_detail_type__}",
+            "EventBusName": "${__event_bus_name__}",
+            "Source": "${__stack_source__}"
+          }
+        ]
+      },
+      "End": true
     },
     "Get libraries with readsets": {
       "Type": "Parallel",
@@ -758,26 +829,86 @@
       "Type": "Choice",
       "Choices": [
         {
-          "Next": "Push DRAFT Event",
+          "Next": "Put DRAFT update event (full)",
           "Condition": "{% $states.input.hasChanged %}",
           "Comment": "Payload has changed"
         }
       ],
-      "Default": "No need to rerun"
+      "Default": "Get missing schema fields"
     },
-    "Push DRAFT Event": {
+    "Put DRAFT update event (full)": {
       "Type": "Task",
       "Resource": "arn:aws:states:::events:putEvents",
       "Arguments": {
         "Entries": [
           {
-            "Detail": "{% $merge([\n  $detail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $payload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n])\n %}",
+            "Detail": "{% $merge([$workflowRunUpdate, {\"timestamp\": $states.context.State.EnteredTime}]) ~> $sift(function($v, $k){$v != null}) %}",
             "DetailType": "${__workflow_run_update_event_detail_type__}",
             "EventBusName": "${__event_bus_name__}",
             "Source": "${__stack_source__}"
           }
         ]
       },
+      "End": true
+    },
+    "Get missing schema fields": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${__get_missing_schema_fields_lambda_function_arn__}",
+        "Payload": {
+          "data": "{% $workflowRunUpdate.payload.data %}",
+          "payloadVersion": "{% $payload.version ? $payload.version : '${__default_payload_version__}' %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Output": "{% $states.result.Payload %}",
+      "Next": "Add no change comment"
+    },
+    "Add no change comment": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Arguments": {
+        "FunctionName": "${__add_populate_draft_comment_lambda_function_arn__}",
+        "Payload": {
+          "workflowRunId": "{% $detail.orcabusId %}",
+          "commentType": "no_change_missing_fields",
+          "missingFields": "{% $states.input.missingFields %}",
+          "executionArn": "{% $states.context.Execution.Id %}"
+        }
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2,
+          "JitterStrategy": "FULL"
+        }
+      ],
+      "Next": "Success (no change)",
+      "Output": "{% $states.input %}"
+    },
+    "Success (no change)": {
+      "Type": "Pass",
       "End": true
     }
   },
