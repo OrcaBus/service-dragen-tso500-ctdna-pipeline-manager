@@ -1,20 +1,19 @@
 #!/usr/bin/env python3
 
 """
-Download the draft schema from AWS schema registry, validate it against the current schema, and return the results.
-
-If event.addCommentOnError is set to True, add a comment to the workflow run on validation failure.
+Download the draft schema, validate it against the current schema, and print the results.
 """
 
-# Imports
+# Standard imports
+import json
 import boto3
 import typing
 import jsonschema
-from typing import Dict
-import json
 from os import environ
+from typing import Dict
 import logging
 from jsonschema import ValidationError
+from pathlib import Path
 
 # Layer imports
 from orcabus_api_tools.workflow import add_comment_to_workflow_run
@@ -26,11 +25,12 @@ if typing.TYPE_CHECKING:
 
 # Globals
 SSM_REGISTRY_NAME_ENV_VAR = "SSM_REGISTRY_NAME"
-SSM_SCHEMA_NAME_ENV_VAR = "SSM_SCHEMA_NAME"
+SSM_SCHEMA_PATH_ENV_VAR = "SSM_SCHEMA_PATH"
 WORKFLOW_NAME_ENV_VAR = "WORKFLOW_NAME"
 COMMENT_AUTHOR = "{WORKFLOW_NAME}-workflow-validation-service"
+DEFAULT_PAYLOAD_VERSION_ENV_VAR = "DEFAULT_PAYLOAD_VERSION"
 
-# Set logging
+# Set up logging
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -79,7 +79,7 @@ def get_schema_from_registry(
 def validate_draft_schema(
         json_schema: str,
         json_body: str,
-        workflow_run_id: str = None,
+        workflow_run_id: str,
         comment_error: bool = False
 ) -> bool:
     """
@@ -114,18 +114,21 @@ def handler(event, context) -> Dict[str, bool]:
     Given a draft schema, validate it against the current schema and print the results.
     :return:
     """
-    """
-        Given a draft schema, validate it against the current schema and print the results.
-        :return:
-        """
     # Get the event data
+    payload_version = event.get("payloadVersion")
     payload_data = event.get('data')
     workflow_run_id = event.get("workflowRunId", "")
     comment_error = event.get("addCommentOnError", False)
 
+    # Set payload version if not defined
+    if payload_version is None:
+        payload_version = environ[DEFAULT_PAYLOAD_VERSION_ENV_VAR]
+
     # Get the SSM parameters
     schema_registry = get_ssm_parameter_value(environ[SSM_REGISTRY_NAME_ENV_VAR])
-    schema_name = json.loads(get_ssm_parameter_value(environ[SSM_SCHEMA_NAME_ENV_VAR]))['schemaName']
+    schema_name = json.loads(get_ssm_parameter_value(
+        str(Path(environ[SSM_SCHEMA_PATH_ENV_VAR]) / payload_version)
+    ))['schemaName']
 
     # Get the current schema from the schema registry
     current_schema = get_schema_from_registry(
