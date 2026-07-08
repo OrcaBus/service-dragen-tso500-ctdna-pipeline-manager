@@ -300,7 +300,7 @@
                   "Comment": "Filemanager failed to sync"
                 }
               ],
-              "Default": "Wait Five Seconds for FM to sync"
+              "Default": "Add the portal run id attributes"
             },
             "Wait Five Seconds for FM to sync": {
               "Type": "Wait",
