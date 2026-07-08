@@ -4,6 +4,7 @@
 Given a payload data object, validate it against the schema and return the list of missing/invalid fields.
 """
 
+# Standard imports
 import boto3
 import json
 import typing
@@ -11,10 +12,12 @@ import jsonschema
 from os import environ
 from pathlib import Path
 
+# Type hints
 if typing.TYPE_CHECKING:
     from mypy_boto3_schemas import SchemasClient
     from mypy_boto3_ssm import SSMClient
 
+# Globals
 SSM_REGISTRY_NAME_ENV_VAR = "SSM_REGISTRY_NAME"
 SSM_SCHEMA_PATH_ENV_VAR = "SSM_SCHEMA_PATH"
 DEFAULT_PAYLOAD_VERSION_ENV_VAR = "DEFAULT_PAYLOAD_VERSION"
@@ -76,5 +79,8 @@ def handler(event, context):
             # For other errors (type, pattern, etc.)
             if path:
                 missing_fields.append(f"{path} ({error.message[:50]})")
+
+    # Remove duplicates from the missing fields schema
+    missing_fields = list(set(missing_fields))
 
     return {"missingFields": missing_fields}
