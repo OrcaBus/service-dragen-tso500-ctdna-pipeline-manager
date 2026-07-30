@@ -37,6 +37,8 @@ export interface BuildStepFunctionProps extends StepFunctionInput {
   eventBus: IEventBus;
   ssmParameterPaths: SsmParameterPaths;
   fargateTabixTaskObj: EcsFargateTaskConstruct;
+  pipelineCacheBucketName: string;
+  pipelineCachePrefix: string;
 }
 
 export interface StepFunctionObject extends StepFunctionInput {

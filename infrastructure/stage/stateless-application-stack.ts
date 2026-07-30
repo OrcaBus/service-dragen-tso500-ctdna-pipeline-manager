@@ -64,6 +64,8 @@ export class StatelessApplicationStack extends GitStack {
       eventBus: orcabusMainEventBus,
       ssmParameterPaths: props.ssmParameterPaths,
       fargateTabixTaskObj: fargateTabixTaskObj,
+      pipelineCacheBucketName: props.pipelineCacheBucketName,
+      pipelineCachePrefix: props.pipelineCachePrefix,
     });
 
     // Add event rules
