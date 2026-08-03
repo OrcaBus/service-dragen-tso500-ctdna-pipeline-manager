@@ -26,6 +26,10 @@ import { ICAV2_PROJECT_ID } from '@orcabus/platform-cdk-constructs/shared-config
 import { substituteBucketConstants } from './utils';
 import { SsmParameterPaths, SsmParameterValues } from './ssm/interfaces';
 import { StatefulApplicationStackConfig, StatelessApplicationStackConfig } from './interfaces';
+import {
+  PIPELINE_CACHE_BUCKET,
+  PIPELINE_CACHE_PREFIX,
+} from '@orcabus/platform-cdk-constructs/shared-config/s3';
 
 export const getSsmParameterPaths = (): SsmParameterPaths => {
   return {
@@ -100,5 +104,9 @@ export const getStatelessApplicationStackProps = (
 
     // Event Bus Object
     eventBusName: EVENT_BUS_NAME,
+
+    // Pipeline cache bucket
+    pipelineCacheBucketName: PIPELINE_CACHE_BUCKET[stage],
+    pipelineCachePrefix: PIPELINE_CACHE_PREFIX[stage],
   };
 };
