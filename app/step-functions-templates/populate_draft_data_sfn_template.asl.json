@@ -426,7 +426,7 @@
           "JitterStrategy": "FULL"
         }
       ],
-      "Next": "Put DRAFT update event",
+      "Next": "Generate WRU event",
       "Output": "{% $states.input %}"
     },
     "Add updating inputs comment": {
@@ -456,21 +456,6 @@
       ],
       "Next": "Get libraries with readsets",
       "Output": "{% $states.input %}"
-    },
-    "Put DRAFT update event": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::events:putEvents",
-      "Arguments": {
-        "Entries": [
-          {
-            "Detail": "{% $merge([\n  $detail,\n  {\n    \"status\": \"${__draft_event_status__}\",\n    \"timestamp\": $states.context.State.EnteredTime,\n    \"payload\": (\n      $merge([\n        $payload,\n        {\n          \"refId\": null,\n          \"data\": {\n            \"inputs\": $inputs,\n            \"engineParameters\": $engineParameters,\n            \"tags\": $tags\n          }\n        }\n      ])\n      /* Remove null inputs like refId */\n      ~> $sift(function($v, $k){$v != null})\n    )\n  }\n])\n %}",
-            "DetailType": "${__workflow_run_update_event_detail_type__}",
-            "EventBusName": "${__event_bus_name__}",
-            "Source": "${__stack_source__}"
-          }
-        ]
-      },
-      "End": true
     },
     "Get libraries with readsets": {
       "Type": "Parallel",
