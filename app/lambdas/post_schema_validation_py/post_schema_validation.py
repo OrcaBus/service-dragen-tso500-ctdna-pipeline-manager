@@ -52,7 +52,7 @@ REF_DATA_BUCKET = environ[REF_DATA_BUCKET_ENV_VAR]
 WORKFLOW_NAME = environ[WORKFLOW_NAME_ENV_VAR]
 COMMENT_AUTHOR = f"{WORKFLOW_NAME}-workflow-validation-service"
 # Midfixes
-ANALYSIS_MIDFIX = "analysis"
+ANALYSIS_MIDFIXES = ["analysis", "output", "outputs"]
 LOGS_MIDFIX = "logs"
 
 logger = logging.getLogger()
@@ -137,13 +137,17 @@ def validate_engine_parameters(
     portal_run_id = get_workflow_run(workflow_run_id)['portalRunId']
 
     # 5. Validate outputUri ends with /<analysis-midfix>/<workflow-name>/<portal-run-id>/
-    valid_output_suffixes = [
-        f"/{midfix}/{WORKFLOW_NAME}/{portal_run_id}/"
-        for midfix in ("analysis", "output", "outputs")
-    ]
-    if not any(output_uri.endswith(suffix) for suffix in valid_output_suffixes):
+    output_uri_valid = any(
+        output_uri.endswith(f"/{midfix}/{WORKFLOW_NAME}/{portal_run_id}/")
+        for midfix in ANALYSIS_MIDFIXES
+    )
+    if not output_uri_valid:
+        valid_suffixes = ", ".join(
+            f"/{midfix}/{WORKFLOW_NAME}/{portal_run_id}/" for midfix in ANALYSIS_MIDFIXES
+        )
         failures.append(
-            f"outputUri '{output_uri}' does not end with '/{ANALYSIS_MIDFIX}/{WORKFLOW_NAME}/{portal_run_id}/'"
+            f"outputUri '{output_uri}' does not end with a valid suffix. "
+            f"Expected one of: {valid_suffixes}"
         )
 
     # 6. Validate logsUri ends with /logs/<workflow-name>/<portal-run-id>/
