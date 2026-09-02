@@ -1,7 +1,6 @@
 allowBuilds:
+  '@parcel/watcher': true
   unrs-resolver: true
-ignoredBuiltDependencies:
-  - unrs-resolver
 minimumReleaseAgeExclude:
   - js-yaml@3.15.0 || 3.15.1
   - '@orcabus/platform-cdk-constructs@1.9.3'
