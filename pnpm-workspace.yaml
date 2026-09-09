@@ -5,4 +5,4 @@ minimumReleaseAgeExclude:
   - js-yaml@3.15.0 || 3.15.1
   - '@orcabus/platform-cdk-constructs@1.9.3'
 overrides:
-  browserslist@<=4.28.6: ^4.28.7
+  js-yaml@>=3.0.0 <3.15.2: ^3.15.2
